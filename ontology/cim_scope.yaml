@@ -1,0 +1,148 @@
+version: 0.1.0
+description: >
+  精简的 CIM (IEC 61970/61968) 语义范围，突出电力资产、拓扑和
+  运维关系，供 Ontology 层裁剪与扩展。
+cim_release: IEC_61970_61968_Ed3
+last_reviewed: 2025-11-20
+
+packages:
+  - id: core_topology
+    name: Topology
+    summary: 电网空间/电气拓扑骨架
+    entities:
+      - name: Substation
+        inherits: PowerSystemResource
+        key_attributes: [mRID, name, description, region]
+        relationships:
+          - type: contains
+            target: VoltageLevel
+          - type: operatedBy
+            target: Organisation
+      - name: VoltageLevel
+        inherits: EquipmentContainer
+        key_attributes: [mRID, nominalVoltage]
+        relationships:
+          - type: contains
+            target: Bay
+          - type: partOf
+            target: Substation
+      - name: ConnectivityNode
+        inherits: IdentifiedObject
+        key_attributes: [mRID]
+        relationships:
+          - type: aggregates
+            target: Terminal
+      - name: Terminal
+        inherits: ACDCTerminal
+        key_attributes: [mRID, sequenceNumber]
+        relationships:
+          - type: connects
+            target: ConductingEquipment
+          - type: boundTo
+            target: ConnectivityNode
+
+  - id: wires_equipment
+    name: Wires & ConductingEquipment
+    summary: 输配电导体、开关等一线设备
+    entities:
+      - name: PowerTransformer
+        inherits: ConductingEquipment
+        key_attributes: [mRID, name, constructionKind]
+        relationships:
+          - type: hasEnd
+            target: TransformerEnd
+          - type: locatedIn
+            target: Substation
+      - name: ACLineSegment
+        inherits: Conductor
+        key_attributes: [mRID, length, r, x]
+        relationships:
+          - type: connectedVia
+            target: Terminal
+      - name: Breaker
+        inherits: Switch
+        key_attributes: [mRID, ratedCurrent, normalOpen]
+        relationships:
+          - type: connects
+            target: Terminal
+          - type: partOf
+            target: Bay
+
+  - id: asset_mgmt
+    name: Assets & Maintenance
+    summary: 资产全生命周期与运维作业
+    entities:
+      - name: Asset
+        inherits: IdentifiedObject
+        key_attributes: [assetID, serialNumber, criticality]
+        relationships:
+          - type: realises
+            target: PowerSystemResource
+      - name: Work
+        inherits: Document
+        key_attributes: [workID, priority, status]
+        relationships:
+          - type: targets
+            target: PowerSystemResource
+          - type: includes
+            target: WorkTask
+      - name: WorkTask
+        inherits: BaseWork
+        key_attributes: [taskID, type, crew]
+        relationships:
+          - type: partOf
+            target: Work
+          - type: operatesOn
+            target: Asset
+
+  - id: metering_market
+    name: Metering & Market
+    summary: 计量点、读数与市场交互
+    entities:
+      - name: UsagePoint
+        inherits: IdentifiedObject
+        key_attributes: [mRID, serviceCategory]
+        relationships:
+          - type: measuredBy
+            target: Meter
+          - type: feeds
+            target: EnergyConsumer
+      - name: Meter
+        inherits: Asset
+        key_attributes: [assetID, installDate]
+        relationships:
+          - type: captures
+            target: MeterReading
+      - name: MeterReading
+        inherits: IdentifiedObject
+        key_attributes: [readingType, value, readingTime]
+        relationships:
+          - type: associatedWith
+            target: UsagePoint
+
+relation_templates:
+  - id: containment
+    schema:
+      source_role: container
+      target_role: contained
+      mandatory: true
+      cardinality: one_to_many
+  - id: connectivity
+    schema:
+      source_role: equipment
+      target_role: node
+      mandatory: true
+      cardinality: many_to_one
+  - id: lifecycle
+    schema:
+      source_role: asset
+      target_role: work
+      mandatory: false
+      cardinality: many_to_many
+
+notes:
+  - 聚焦四个主题包即可覆盖首批电网孪生用例，占 CIM 的 20-30%。
+  - 保留继承链便于将通用属性映射到统一 Iceberg schema。
+  - relation_templates 用于在语义服务中快速派生具体关系表结构。
+
+

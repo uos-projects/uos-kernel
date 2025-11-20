@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>电网数字孪生时间回溯</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="d3.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>电力数字孪生 · 时间旅行视图</h1>
+      <p>基于 Iceberg + Nessie 的实体/关系时点回溯</p>
+    </header>
+
+    <section class="controls">
+      <div class="control-group">
+        <label for="mode">时间模式</label>
+        <select id="mode">
+          <option value="biz" selected>业务时间</option>
+          <option value="timestamp">技术时间（Timestamp）</option>
+          <option value="snapshot">Snapshot ID</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label for="value">取值</label>
+        <input
+          id="value"
+          type="text"
+          placeholder="例如 2100-01-01T00:00:00Z 或 123456"
+        />
+      </div>
+      <div class="control-group timeline-group">
+        <label for="timeline">时间轴</label>
+        <div class="timeline-container">
+          <div class="timeline-wrapper">
+            <input
+              type="range"
+              id="timeline"
+              min="0"
+              max="150"
+              value="150"
+              step="1"
+            />
+            <div id="timeline-markers" class="timeline-markers"></div>
+          </div>
+          <div class="timeline-labels">
+            <span>2025-01-01</span>
+            <span id="timeline-value">2025-05-31</span>
+          </div>
+        </div>
+      </div>
+      <button id="query-btn">查询</button>
+      <button id="snapshots-btn" class="ghost">加载最新 snapshot</button>
+      <span id="status"></span>
+    </section>
+
+    <section class="panel graph-panel">
+      <h2>拓扑视图</h2>
+      <svg id="graph" width="100%" height="600"></svg>
+    </section>
+
+    <section class="panel">
+      <h2>实体列表</h2>
+      <table id="entities-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>类型</th>
+            <th>名称</th>
+            <th>区域</th>
+            <th>生效</th>
+            <th>失效</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <h2>关系列表</h2>
+      <table id="relations-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>源</th>
+            <th>目标</th>
+            <th>类型</th>
+            <th>生效</th>
+            <th>失效</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Snapshot 列表</h2>
+      <table id="snapshots-table">
+        <thead>
+          <tr>
+            <th>表</th>
+            <th>Snapshot ID</th>
+            <th>提交时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <script src="app.js?v=202511201310"></script>
+  </body>
+</html>
+

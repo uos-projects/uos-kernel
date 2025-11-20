@@ -1,0 +1,11 @@
+Iceberg 最小运行指引
+====================
+
+1. 先安装 docker 与 docker compose 插件。
+2. 执行 `docker compose -f infra/docker-compose.yml up -d` 启动 MinIO 与 Nessie。
+3. 首次启动后，登录 http://localhost:19001 使用 iceberg/iceberg_password 创建名为 iceberg 的 bucket。
+4. Spark 作业建议使用本地 PySpark/Spark，连接到 Nessie + MinIO。
+   - Nessie 端点: http://localhost:19120/api/v2
+   - Object Storage: s3a://iceberg (endpoint http://localhost:19000)
+5. 完成测试后，可运行 `docker compose -f infra/docker-compose.yml down -v` 清理。
+

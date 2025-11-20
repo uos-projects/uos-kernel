@@ -1,0 +1,46 @@
+services:
+  minio:
+    image: quay.io/minio/minio:RELEASE.2024-10-02T17-50-41Z
+    container_name: iceberg-minio
+    command: server --console-address ":9001" /data
+    environment:
+      MINIO_ROOT_USER: iceberg
+      MINIO_ROOT_PASSWORD: iceberg_password
+    ports:
+      - "19000:9000"
+      - "19001:9001"
+    volumes:
+      - minio-data:/data
+
+  nessie:
+    image: ghcr.io/projectnessie/nessie:0.93.1
+    container_name: iceberg-nessie
+    environment:
+      QUARKUS_HTTP_PORT: 19120
+      NESSIE_VERSION_STORE_TYPE: ROCKSDB
+    ports:
+      - "19120:19120"
+    depends_on:
+      - minio
+
+  spark:
+    image: tabulario/spark-iceberg:latest
+    container_name: iceberg-spark
+    environment:
+      SPARK_HOME: /opt/spark
+      AWS_ACCESS_KEY_ID: iceberg
+      AWS_SECRET_ACCESS_KEY: iceberg_password
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT: http://minio:9000
+      ICEBERG_CATALOG: nessie
+    entrypoint:
+      - /opt/spark/bin/spark-submit
+      - --version
+    depends_on:
+      - minio
+      - nessie
+
+volumes:
+  minio-data:
+    driver: local
+
