@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>语义模型管理 - CIM Ontology</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .ontology-container {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 20px;
+        padding: 20px;
+        height: calc(100vh - 100px);
+      }
+      
+      .sidebar {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        overflow-y: auto;
+      }
+      
+      .main-content {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        overflow-y: auto;
+      }
+      
+      .package-item {
+        padding: 10px;
+        margin: 5px 0;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+        border-left: 3px solid #3b82f6;
+      }
+      
+      .package-item:hover {
+        background: #e0e7ff;
+      }
+      
+      .package-item.active {
+        background: #dbeafe;
+        border-left-color: #2563eb;
+      }
+      
+      .entity-list {
+        margin-top: 10px;
+        padding-left: 20px;
+      }
+      
+      .entity-item {
+        padding: 8px;
+        margin: 3px 0;
+        background: #f1f5f9;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      
+      .entity-item:hover {
+        background: #e2e8f0;
+      }
+      
+      .entity-item.active {
+        background: #cbd5e1;
+        font-weight: bold;
+      }
+      
+      .entity-detail {
+        margin-top: 20px;
+      }
+      
+      .detail-section {
+        margin: 20px 0;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 4px;
+      }
+      
+      .detail-section h3 {
+        margin-top: 0;
+        color: #1e40af;
+      }
+      
+      .attribute-list, .relationship-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+      }
+      
+      .attribute-item, .relationship-item {
+        padding: 10px;
+        background: white;
+        border-radius: 4px;
+        border: 1px solid #e5e7eb;
+      }
+      
+      .attribute-name {
+        font-weight: bold;
+        color: #1e40af;
+      }
+      
+      .relationship-type {
+        font-weight: bold;
+        color: #059669;
+      }
+      
+      .table-schema {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f0f9ff;
+        border-radius: 4px;
+        border: 1px solid #bae6fd;
+      }
+      
+      .sql-preview {
+        background: #1e293b;
+        color: #e2e8f0;
+        padding: 15px;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        overflow-x: auto;
+        margin-top: 10px;
+      }
+      
+      .action-buttons {
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+      }
+      
+      button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      
+      .btn-primary {
+        background: #3b82f6;
+        color: white;
+      }
+      
+      .btn-primary:hover {
+        background: #2563eb;
+      }
+      
+      .btn-secondary {
+        background: #6b7280;
+        color: white;
+      }
+      
+      .btn-secondary:hover {
+        background: #4b5563;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>语义模型管理 · CIM Ontology</h1>
+      <p>基于 cim_scope.yaml 的语义模型可视化和表自动创建</p>
+    </header>
+
+    <div class="ontology-container">
+      <!-- 左侧边栏：包和实体列表 -->
+      <div class="sidebar">
+        <h2>语义模型</h2>
+        <div id="package-list"></div>
+      </div>
+
+      <!-- 主内容区：实体详情 -->
+      <div class="main-content">
+        <div id="entity-detail">
+          <p>请从左侧选择一个实体查看详情</p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE = "/api";
+
+      let currentEntity = null;
+      let packages = [];
+
+      // 加载包列表
+      async function loadPackages() {
+        try {
+          const res = await fetch(`${API_BASE}/ontology/packages`);
+          const data = await res.json();
+          packages = data.packages;
+          renderPackages();
+        } catch (err) {
+          console.error("加载包失败:", err);
+        }
+      }
+
+      // 渲染包列表
+      function renderPackages() {
+        const container = document.getElementById("package-list");
+        container.innerHTML = "";
+
+        packages.forEach((pkg) => {
+          const pkgDiv = document.createElement("div");
+          pkgDiv.className = "package-item";
+          pkgDiv.innerHTML = `
+            <strong>${pkg.name}</strong>
+            <div style="font-size: 12px; color: #6b7280; margin-top: 5px;">
+              ${pkg.summary}
+            </div>
+            <div style="font-size: 11px; color: #9ca3af; margin-top: 3px;">
+              ${pkg.entity_count} 个实体
+            </div>
+          `;
+
+          // 点击包，加载实体列表
+          pkgDiv.addEventListener("click", () => {
+            loadEntities(pkg.id);
+            // 高亮当前包
+            document.querySelectorAll(".package-item").forEach((el) => {
+              el.classList.remove("active");
+            });
+            pkgDiv.classList.add("active");
+          });
+
+          container.appendChild(pkgDiv);
+        });
+      }
+
+      // 加载实体列表
+      async function loadEntities(packageId) {
+        try {
+          const res = await fetch(`${API_BASE}/ontology/entities?package_id=${packageId}`);
+          const data = await res.json();
+          renderEntities(data.entities, packageId);
+        } catch (err) {
+          console.error("加载实体失败:", err);
+        }
+      }
+
+      // 渲染实体列表
+      function renderEntities(entities, packageId) {
+        // 找到当前包的 div
+        const pkgDivs = document.querySelectorAll(".package-item");
+        let currentPkgDiv = null;
+        for (const div of pkgDivs) {
+          if (div.textContent.includes(packages.find((p) => p.id === packageId)?.name || "")) {
+            currentPkgDiv = div;
+            break;
+          }
+        }
+
+        if (!currentPkgDiv) return;
+
+        // 移除旧的实体列表
+        const oldList = currentPkgDiv.querySelector(".entity-list");
+        if (oldList) oldList.remove();
+
+        // 创建新的实体列表
+        const entityList = document.createElement("div");
+        entityList.className = "entity-list";
+
+        entities.forEach((entity) => {
+          const entityDiv = document.createElement("div");
+          entityDiv.className = "entity-item";
+          entityDiv.textContent = entity.name;
+          entityDiv.addEventListener("click", () => {
+            loadEntityDetail(entity.name);
+            // 高亮当前实体
+            document.querySelectorAll(".entity-item").forEach((el) => {
+              el.classList.remove("active");
+            });
+            entityDiv.classList.add("active");
+          });
+          entityList.appendChild(entityDiv);
+        });
+
+        currentPkgDiv.appendChild(entityList);
+      }
+
+      // 加载实体详情
+      async function loadEntityDetail(entityName) {
+        try {
+          const res = await fetch(`${API_BASE}/ontology/entity/${entityName}`);
+          const entity = await res.json();
+          currentEntity = entity;
+
+          // 加载表结构
+          const schemaRes = await fetch(`${API_BASE}/mapping/entity/${entityName}`);
+          const schema = await schemaRes.json();
+
+          renderEntityDetail(entity, schema);
+        } catch (err) {
+          console.error("加载实体详情失败:", err);
+        }
+      }
+
+      // 渲染实体详情
+      function renderEntityDetail(entity, schema) {
+        const container = document.getElementById("entity-detail");
+
+        const attributesHtml = entity.all_attributes
+          .map(
+            (attr) => `
+            <div class="attribute-item">
+              <div class="attribute-name">${attr}</div>
+            </div>
+          `
+          )
+          .join("");
+
+        const relationshipsHtml = entity.relationships
+          .map(
+            (rel) => `
+            <div class="relationship-item">
+              <span class="relationship-type">${rel.type}</span>
+              <span style="margin: 0 5px;">→</span>
+              <span>${rel.target}</span>
+            </div>
+          `
+          )
+          .join("");
+
+        const columnsHtml = schema.columns
+          .map(
+            (col) => `
+            <div class="attribute-item">
+              <div class="attribute-name">${col.name}</div>
+              <div style="font-size: 12px; color: #6b7280;">${col.type}</div>
+            </div>
+          `
+          )
+          .join("");
+
+        container.innerHTML = `
+          <h2>${entity.name}</h2>
+          <div style="color: #6b7280; margin-bottom: 20px;">
+            包: ${entity.package_name} | 
+            继承: ${entity.inherits || "无"} | 
+            表名: ${schema.table_name}
+          </div>
+
+          <div class="detail-section">
+            <h3>属性 (${entity.all_attributes.length})</h3>
+            <div class="attribute-list">${attributesHtml}</div>
+          </div>
+
+          <div class="detail-section">
+            <h3>关系 (${entity.relationships.length})</h3>
+            <div class="relationship-list">${relationshipsHtml}</div>
+          </div>
+
+          <div class="table-schema">
+            <h3>Iceberg 表结构</h3>
+            <div style="margin: 10px 0;">
+              <strong>表名:</strong> ${schema.table_name}<br>
+              <strong>命名空间:</strong> ${schema.namespace}<br>
+              <strong>分区字段:</strong> ${schema.partition_fields.join(", ") || "无"}
+            </div>
+            <div style="margin-top: 15px;">
+              <strong>列 (${schema.columns.length}):</strong>
+              <div class="attribute-list" style="margin-top: 10px;">${columnsHtml}</div>
+            </div>
+            <div style="margin-top: 15px;">
+              <strong>SQL 预览:</strong>
+              <div class="sql-preview">${schema.sql.table}</div>
+            </div>
+            <div class="action-buttons">
+              <button class="btn-primary" onclick="createTable('${entity.name}')">
+                创建表
+              </button>
+              <button class="btn-secondary" onclick="previewTable('${entity.name}')">
+                预览 SQL
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
+      // 创建表
+      async function createTable(entityName) {
+        if (!confirm(`确定要创建表 ${entityName} 吗？`)) {
+          return;
+        }
+
+        try {
+          const res = await fetch(`${API_BASE}/tables/create/${entityName}?dry_run=false`, {
+            method: "POST",
+          });
+          const data = await res.json();
+
+          if (data.status === "created") {
+            alert(`表创建成功！\n表名: ${data.table_name}`);
+            // 重新加载实体详情以更新状态
+            loadEntityDetail(entityName);
+          } else {
+            alert(`创建失败: ${JSON.stringify(data)}`);
+          }
+        } catch (err) {
+          alert(`创建表失败: ${err.message}`);
+        }
+      }
+
+      // 预览表（dry run）
+      async function previewTable(entityName) {
+        try {
+          const res = await fetch(`${API_BASE}/tables/create/${entityName}?dry_run=true`, {
+            method: "POST",
+          });
+          const data = await res.json();
+
+          const sqlText = data.sql.join("\n\n");
+          const newWindow = window.open();
+          newWindow.document.write(`
+            <html>
+              <head><title>SQL Preview - ${entityName}</title></head>
+              <body style="font-family: monospace; padding: 20px; background: #1e293b; color: #e2e8f0;">
+                <pre>${sqlText}</pre>
+              </body>
+            </html>
+          `);
+        } catch (err) {
+          alert(`预览失败: ${err.message}`);
+        }
+      }
+
+      // 初始化
+      loadPackages();
+    </script>
+  </body>
+</html>
+

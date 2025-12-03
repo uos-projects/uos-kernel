@@ -11,6 +11,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pyspark.sql import SparkSession, DataFrame
 
+# 导入语义模型和映射模块
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from ontology.parser import get_semantic_model
+from ontology.model import Entity
+from mapping.mapper import EntityMapper
+from table_gen.generator import SQLGenerator
+
 
 NESSIE_URI = "http://localhost:19120/api/v2"
 S3_ENDPOINT = "http://localhost:19000"
@@ -234,6 +244,172 @@ def shutdown_spark():
 async def read_root():
     """返回前端页面"""
     return FileResponse(os.path.join(WEB_DIR, "index.html"))
+
+
+# ==================== 语义模型管理 API ====================
+
+@app.get("/api/ontology/packages")
+def get_packages():
+    """获取所有包"""
+    model = get_semantic_model()
+    return {
+        "packages": [
+            {
+                "id": pkg.id,
+                "name": pkg.name,
+                "summary": pkg.summary,
+                "entity_count": len(pkg.entities),
+            }
+            for pkg in model.packages
+        ]
+    }
+
+
+@app.get("/api/ontology/entities")
+def get_entities(package_id: str = Query(None, description="包 ID，可选")):
+    """获取所有实体"""
+    model = get_semantic_model()
+    entities = model.get_all_entities()
+    
+    if package_id:
+        entities = [e for e in entities if e.package_id == package_id]
+    
+    return {
+        "entities": [
+            {
+                "name": entity.name,
+                "package_id": entity.package_id,
+                "package_name": entity.package_name,
+                "inherits": entity.inherits,
+                "key_attributes": entity.key_attributes,
+                "relationships": [
+                    {"type": rel.type, "target": rel.target}
+                    for rel in entity.relationships
+                ],
+            }
+            for entity in entities
+        ]
+    }
+
+
+@app.get("/api/ontology/entity/{entity_name}")
+def get_entity(entity_name: str):
+    """获取实体详情"""
+    model = get_semantic_model()
+    entity = model.get_entity(entity_name)
+    
+    if entity is None:
+        raise HTTPException(status_code=404, detail=f"实体 {entity_name} 不存在")
+    
+    entity_registry = model.get_entity_registry()
+    all_attributes = entity.get_all_attributes(entity_registry)
+    
+    return {
+        "name": entity.name,
+        "package_id": entity.package_id,
+        "package_name": entity.package_name,
+        "inherits": entity.inherits,
+        "key_attributes": entity.key_attributes,
+        "all_attributes": all_attributes,
+        "relationships": [
+            {"type": rel.type, "target": rel.target}
+            for rel in entity.relationships
+        ],
+    }
+
+
+# ==================== 映射和表生成 API ====================
+
+@app.get("/api/mapping/entity/{entity_name}")
+def get_table_schema(entity_name: str):
+    """获取实体的表结构（不创建表）"""
+    model = get_semantic_model()
+    entity = model.get_entity(entity_name)
+    
+    if entity is None:
+        raise HTTPException(status_code=404, detail=f"实体 {entity_name} 不存在")
+    
+    mapper = EntityMapper(model)
+    schema = mapper.map_entity_to_table(entity)
+    
+    # 生成 SQL
+    sqls = SQLGenerator.generate_table_sqls(schema)
+    
+    return {
+        "entity_name": entity_name,
+        "table_name": schema.get_full_table_name(),
+        "namespace": schema.namespace,
+        "columns": [
+            {"name": col.name, "type": col.type, "comment": col.comment}
+            for col in schema.columns
+        ],
+        "partition_fields": schema.partition_fields,
+        "sql": {
+            "namespace": sqls[0],
+            "table": sqls[1] if len(sqls) > 1 else "",
+        },
+    }
+
+
+@app.post("/api/tables/create/{entity_name}")
+def create_table(entity_name: str, dry_run: bool = Query(False, description="是否只是预览，不实际创建")):
+    """根据实体创建 Iceberg 表"""
+    model = get_semantic_model()
+    entity = model.get_entity(entity_name)
+    
+    if entity is None:
+        raise HTTPException(status_code=404, detail=f"实体 {entity_name} 不存在")
+    
+    mapper = EntityMapper(model)
+    schema = mapper.map_entity_to_table(entity)
+    sqls = SQLGenerator.generate_table_sqls(schema)
+    
+    if dry_run:
+        return {
+            "entity_name": entity_name,
+            "table_name": schema.get_full_table_name(),
+            "sql": sqls,
+            "status": "preview",
+        }
+    
+    # 实际创建表
+    spark = get_spark()
+    results = []
+    
+    try:
+        for sql in sqls:
+            spark.sql(sql)
+            results.append({"sql": sql, "status": "success"})
+        
+        return {
+            "entity_name": entity_name,
+            "table_name": schema.get_full_table_name(),
+            "status": "created",
+            "results": results,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"创建表失败: {str(e)}")
+
+
+@app.get("/api/tables/mappings")
+def get_all_mappings():
+    """获取所有实体到表的映射关系"""
+    model = get_semantic_model()
+    mapper = EntityMapper(model)
+    schemas = mapper.map_all_entities()
+    
+    return {
+        "mappings": [
+            {
+                "entity_name": entity_name,
+                "table_name": schema.get_full_table_name(),
+                "namespace": schema.namespace,
+                "column_count": len(schema.columns),
+                "partition_fields": schema.partition_fields,
+            }
+            for entity_name, schema in schemas.items()
+        ]
+    }
 
 
 @app.get("/{path:path}")
