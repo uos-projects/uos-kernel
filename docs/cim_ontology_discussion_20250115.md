@@ -242,7 +242,261 @@ ConductingEquipment ←→ GroundAction
 
 ---
 
-### 7. ObjectProperty 的基数（Cardinality）问题
+### 7. 更好的建模方式建议
+
+#### 问题
+- 面向对象思维方式将 `performAction(action: GroundAction)` 作为 `ConductingEquipment` 的方法来建模，有什么更好的建议？
+
+#### 答案
+
+面向对象的方法调用方式不适合电力系统的操作记录场景。以下是几种更合适的建模方式：
+
+#### 7.1 事件溯源（Event Sourcing）模式
+
+将操作建模为不可变的事件序列：
+
+```
+ConductingEquipment (当前状态)
+  ↓
+Event Stream (事件流)
+  ├─ GroundingPlacedEvent (接地放置事件)
+  ├─ GroundingRemovedEvent (接地移除事件)
+  └─ StateChangedEvent (状态变更事件)
+```
+
+**优点：**
+- 完整的历史记录
+- 可以重建任意时间点的状态
+- 支持时间旅行查询
+- 符合审计要求
+
+**实现方式：**
+```python
+# 事件类
+class GroundingPlacedEvent:
+    equipment_id: str
+    timestamp: datetime
+    operator: str
+    kind: TempEquipActionKind
+    
+# 设备状态通过事件重建
+class ConductingEquipment:
+    def apply_event(self, event: Event):
+        # 应用事件，更新状态
+        pass
+    
+    def get_state_at(self, timestamp: datetime):
+        # 重放事件到指定时间点
+        pass
+```
+
+#### 7.2 命令模式（Command Pattern）+ 领域事件
+
+将操作分为命令和事件：
+
+```
+Command (命令) → 执行 → Event (事件) → 更新状态
+```
+
+```
+GroundingCommand (命令)
+  ↓ 执行
+GroundingExecutedEvent (领域事件)
+  ↓ 更新
+ConductingEquipmentState (设备状态)
+```
+
+**优点：**
+- 命令可以排队、撤销、重试
+- 事件可以触发其他业务逻辑
+- 命令和事件分离，职责清晰
+
+**实现方式：**
+```python
+class GroundingCommand:
+    equipment_id: str
+    action_type: str  # "place" or "remove"
+    operator: str
+    
+    def execute(self) -> GroundingExecutedEvent:
+        # 执行业务逻辑
+        return GroundingExecutedEvent(...)
+
+class GroundingExecutedEvent:
+    command_id: str
+    equipment_id: str
+    executed_at: datetime
+    result: str  # "success" or "failure"
+```
+
+#### 7.3 状态机 + 操作记录
+
+将设备状态建模为状态机，操作作为状态转换：
+
+```
+ConductingEquipment State Machine:
+  [Normal] --(place_ground)--> [Grounded]
+  [Grounded] --(remove_ground)--> [Normal]
+```
+
+每个状态转换都记录操作：
+
+```python
+class EquipmentState:
+    current_state: str  # "normal", "grounded", "maintenance"
+    state_history: List[StateTransition]
+    
+class StateTransition:
+    from_state: str
+    to_state: str
+    action: GroundAction  # 触发转换的操作
+    timestamp: datetime
+    operator: str
+```
+
+**优点：**
+- 状态转换清晰
+- 可以验证操作的合法性（状态机约束）
+- 操作记录与状态变更关联
+
+#### 7.4 CQRS（命令查询职责分离）
+
+将写操作（命令）和读操作（查询）分离：
+
+```
+Write Side (命令侧):
+  GroundingCommand → CommandHandler → Event Store
+  
+Read Side (查询侧):
+  Event Store → Read Model → EquipmentView
+```
+
+**优点：**
+- 写模型专注于业务规则
+- 读模型可以优化查询性能
+- 可以有不同的数据模型
+
+**实现方式：**
+```python
+# 命令侧
+class GroundingCommandHandler:
+    def handle(self, command: GroundingCommand):
+        # 验证业务规则
+        # 生成事件
+        event_store.append(event)
+
+# 查询侧
+class EquipmentQueryService:
+    def get_equipment_with_actions(self, equipment_id: str):
+        # 从读模型查询
+        return equipment_view
+```
+
+#### 7.5 时间序列数据模型
+
+将操作记录作为时间序列数据：
+
+```
+Time Series Data:
+  equipment_id | timestamp | action_type | state | operator
+  CE-001       | 10:30:00  | place       | grounded | 张三
+  CE-001       | 14:00:00  | remove      | normal  | 李四
+```
+
+**优点：**
+- 适合时间旅行查询
+- 可以按时间范围聚合
+- 支持流式处理
+
+#### 7.6 领域驱动设计（DDD）的聚合根模式
+
+将设备和操作记录作为聚合：
+
+```
+EquipmentAggregate (聚合根)
+  ├─ ConductingEquipment (实体)
+  └─ ActionHistory (值对象集合)
+      ├─ GroundAction (值对象)
+      ├─ JumperAction (值对象)
+      └─ ...
+```
+
+**优点：**
+- 业务边界清晰
+- 保证一致性
+- 操作记录属于设备聚合
+
+#### 7.7 推荐方案：事件溯源 + 状态机组合
+
+结合事件溯源和状态机：
+
+```python
+class ConductingEquipment:
+    """设备聚合根"""
+    def __init__(self, equipment_id: str):
+        self.equipment_id = equipment_id
+        self.current_state = "normal"
+        self.events: List[DomainEvent] = []
+    
+    def place_ground(self, command: PlaceGroundCommand):
+        """放置接地操作"""
+        # 1. 验证状态机约束
+        if self.current_state != "normal":
+            raise InvalidStateTransition()
+        
+        # 2. 创建领域事件
+        event = GroundingPlacedEvent(
+            equipment_id=self.equipment_id,
+            timestamp=datetime.now(),
+            operator=command.operator,
+            kind=command.kind
+        )
+        
+        # 3. 应用事件（更新状态）
+        self.apply_event(event)
+        
+        # 4. 记录事件
+        self.events.append(event)
+        
+        return event
+    
+    def apply_event(self, event: DomainEvent):
+        """应用事件，更新状态"""
+        if isinstance(event, GroundingPlacedEvent):
+            self.current_state = "grounded"
+        elif isinstance(event, GroundingRemovedEvent):
+            self.current_state = "normal"
+    
+    def get_state_at(self, timestamp: datetime):
+        """时间旅行：获取指定时间点的状态"""
+        state = "normal"
+        for event in self.events:
+            if event.timestamp <= timestamp:
+                self._apply_event_to_state(event, state)
+        return state
+```
+
+**为什么这种方式更好？**
+
+1. **业务语义清晰**：操作是事件，不是方法调用
+2. **历史完整**：所有事件都被记录，可以重建任意状态
+3. **审计友好**：每个操作都有完整的事件记录
+4. **时间旅行**：可以查询任意时间点的设备状态
+5. **扩展性好**：新的事件类型可以轻松添加
+6. **状态一致性**：通过状态机保证操作合法性
+
+**与 CIM 的对应关系：**
+
+- CIM 的 `GroundAction` → 领域事件（`GroundingPlacedEvent`）
+- CIM 的 `ConductingEquipment` → 聚合根（`EquipmentAggregate`）
+- CIM 的 `SwitchingAction.executedDateTime` → 事件的时间戳
+- CIM 的 `SwitchingAction.operator` → 事件的元数据
+
+这种方式既保留了 CIM 的语义，又提供了更好的编程模型和查询能力。
+
+---
+
+### 8. ObjectProperty 的基数（Cardinality）问题
 
 #### 问题
 - 根据定义，`ConductingEquipment.GroundingAction` 好像只能记录一个 GroundingAction？
@@ -319,6 +573,15 @@ ConductingEquipment ←→ GroundAction
 - **行为作为独立实体**：Action 类不是设备的方法，而是独立的操作记录
 - **历史记录**：支持时间旅行查询，可以记录所有历史操作
 - **关联关系**：通过 ObjectProperty 建立设备与操作之间的双向关系
+
+### 5. 更好的建模方式
+- **事件溯源（Event Sourcing）**：将操作建模为不可变的事件序列，支持完整历史记录和时间旅行
+- **命令模式 + 领域事件**：分离命令和事件，支持命令排队、撤销、重试
+- **状态机 + 操作记录**：通过状态机验证操作合法性，记录状态转换历史
+- **CQRS（命令查询职责分离）**：分离写模型和读模型，优化查询性能
+- **时间序列数据模型**：将操作记录作为时间序列，适合时间范围查询和流式处理
+- **DDD 聚合根模式**：将设备和操作记录作为聚合，保证业务边界和一致性
+- **推荐方案**：事件溯源 + 状态机组合，既保留 CIM 语义，又提供更好的编程模型
 
 ---
 
