@@ -1,0 +1,680 @@
+2025-12-09 09:30:55,624:    INFO:cimpyorm.backends - Database: SQLite at /home/chun/Develop/uos-projects/uos-kernel/cimpyorm/cimpyorm/res/datasets/FullGrid/out.db.
+2025-12-09 09:30:55,720:    INFO:cimpyorm.api - CIM Version 16
+2025-12-09 09:30:55,720:    INFO:cimpyorm.auxiliary - Using CIM Version 16.
+2025-12-09 09:30:55,892:    INFO:cimpyorm.Model.Schema - Generating Schema backend.
+2025-12-09 09:30:55,941:    INFO:cimpyorm.Model.Schema - No profiles specified - using all profiles for ORM.
+2025-12-09 09:31:01,003:    INFO:cimpyorm.Model.Schema - Generated 397 classes
+====================================================================================================
+FullGrid 数据集对应的 Python 类层次结构
+====================================================================================================
+
+总共 397 个类
+根类数量: 28
+
+====================================================================================================
+完整类层次结构:
+====================================================================================================
+├── cim_CurveData
+├── entsoe_DiagramLayoutVersion
+├── cim_DiagramObjectGluePoint
+├── cim_DiagramObjectPoint
+├── entsoe_DynamicsVersion
+├── entsoe_EnergySchedulingType
+├── entsoe_EquipmentBoundaryVersion
+├── cim_EquipmentVersion
+├── entsoe_GeographicalLocationVersion
+├── cim_IdentifiedObject
+│   ├── cim_ACDCTerminal
+│   │   ├── cim_DCBaseTerminal
+│   │   │   ├── cim_ACDCConverterDCTerminal
+│   │   │   └── cim_DCTerminal
+│   │   └── cim_Terminal
+│   ├── cim_BaseVoltage
+│   ├── cim_BasicIntervalSchedule
+│   │   └── cim_RegularIntervalSchedule
+│   │       └── cim_SeasonDayTypeSchedule
+│   │           ├── cim_ConformLoadSchedule
+│   │           ├── cim_NonConformLoadSchedule
+│   │           ├── cim_RegulationSchedule
+│   │           ├── cim_SwitchSchedule
+│   │           └── cim_TapSchedule
+│   ├── cim_BusNameMarker
+│   ├── cim_ConnectivityNode
+│   ├── cim_Control
+│   │   ├── cim_AccumulatorReset
+│   │   ├── cim_AnalogControl
+│   │   │   ├── cim_RaiseLowerCommand
+│   │   │   └── cim_SetPoint
+│   │   └── cim_Command
+│   ├── cim_ControlAreaGeneratingUnit
+│   ├── cim_CoordinateSystem
+│   ├── cim_Curve
+│   │   ├── cim_GrossToNetActivePowerCurve
+│   │   ├── cim_ReactiveCapabilityCurve
+│   │   └── cim_VsCapabilityCurve
+│   ├── cim_DCNode
+│   ├── cim_DCTopologicalIsland
+│   ├── cim_DCTopologicalNode
+│   ├── cim_DayType
+│   ├── cim_Diagram
+│   ├── cim_DiagramObject
+│   │   └── cim_TextDiagramObject
+│   ├── cim_DiagramObjectStyle
+│   ├── cim_DiagramStyle
+│   ├── cim_DynamicsFunctionBlock
+│   │   ├── cim_DiscontinuousExcitationControlDynamics
+│   │   │   ├── cim_DiscExcContIEEEDEC1A
+│   │   │   ├── cim_DiscExcContIEEEDEC2A
+│   │   │   ├── cim_DiscExcContIEEEDEC3A
+│   │   │   └── cim_DiscontinuousExcitationControlUserDefined
+│   │   ├── cim_ExcitationSystemDynamics
+│   │   │   ├── cim_ExcAC1A
+│   │   │   ├── cim_ExcAC2A
+│   │   │   ├── cim_ExcAC3A
+│   │   │   ├── cim_ExcAC4A
+│   │   │   ├── cim_ExcAC5A
+│   │   │   ├── cim_ExcAC6A
+│   │   │   ├── cim_ExcAC8B
+│   │   │   ├── cim_ExcANS
+│   │   │   ├── cim_ExcAVR1
+│   │   │   ├── cim_ExcAVR2
+│   │   │   ├── cim_ExcAVR3
+│   │   │   ├── cim_ExcAVR4
+│   │   │   ├── cim_ExcAVR5
+│   │   │   ├── cim_ExcAVR7
+│   │   │   ├── cim_ExcBBC
+│   │   │   ├── cim_ExcCZ
+│   │   │   ├── cim_ExcDC1A
+│   │   │   ├── cim_ExcDC2A
+│   │   │   ├── cim_ExcDC3A
+│   │   │   ├── cim_ExcDC3A1
+│   │   │   ├── cim_ExcELIN1
+│   │   │   ├── cim_ExcELIN2
+│   │   │   ├── cim_ExcHU
+│   │   │   ├── cim_ExcIEEEAC1A
+│   │   │   ├── cim_ExcIEEEAC2A
+│   │   │   ├── cim_ExcIEEEAC3A
+│   │   │   ├── cim_ExcIEEEAC4A
+│   │   │   ├── cim_ExcIEEEAC5A
+│   │   │   ├── cim_ExcIEEEAC6A
+│   │   │   ├── cim_ExcIEEEAC7B
+│   │   │   ├── cim_ExcIEEEAC8B
+│   │   │   ├── cim_ExcIEEEDC1A
+│   │   │   ├── cim_ExcIEEEDC2A
+│   │   │   ├── cim_ExcIEEEDC3A
+│   │   │   ├── cim_ExcIEEEDC4B
+│   │   │   ├── cim_ExcIEEEST1A
+│   │   │   ├── cim_ExcIEEEST2A
+│   │   │   ├── cim_ExcIEEEST3A
+│   │   │   ├── cim_ExcIEEEST4B
+│   │   │   ├── cim_ExcIEEEST5B
+│   │   │   ├── cim_ExcIEEEST6B
+│   │   │   ├── cim_ExcIEEEST7B
+│   │   │   ├── cim_ExcOEX3T
+│   │   │   ├── cim_ExcPIC
+│   │   │   ├── cim_ExcREXS
+│   │   │   ├── cim_ExcSCRX
+│   │   │   ├── cim_ExcSEXS
+│   │   │   ├── cim_ExcSK
+│   │   │   ├── cim_ExcST1A
+│   │   │   ├── cim_ExcST2A
+│   │   │   ├── cim_ExcST3A
+│   │   │   ├── cim_ExcST4B
+│   │   │   ├── cim_ExcST6B
+│   │   │   ├── cim_ExcST7B
+│   │   │   └── cim_ExcitationSystemUserDefined
+│   │   ├── cim_MechanicalLoadDynamics
+│   │   │   ├── cim_MechLoad1
+│   │   │   └── cim_MechanicalLoadUserDefined
+│   │   ├── cim_OverexcitationLimiterDynamics
+│   │   │   ├── cim_OverexcLim2
+│   │   │   ├── cim_OverexcLimIEEE
+│   │   │   ├── cim_OverexcLimX1
+│   │   │   ├── cim_OverexcLimX2
+│   │   │   └── cim_OverexcitationLimiterUserDefined
+│   │   ├── cim_PFVArControllerType1Dynamics
+│   │   │   ├── cim_PFVArControllerType1UserDefined
+│   │   │   ├── cim_PFVArType1IEEEPFController
+│   │   │   └── cim_PFVArType1IEEEVArController
+│   │   ├── cim_PFVArControllerType2Dynamics
+│   │   │   ├── cim_PFVArControllerType2UserDefined
+│   │   │   ├── cim_PFVArType2Common1
+│   │   │   ├── cim_PFVArType2IEEEPFController
+│   │   │   └── cim_PFVArType2IEEEVArController
+│   │   ├── cim_PowerSystemStabilizerDynamics
+│   │   │   ├── cim_PowerSystemStabilizerUserDefined
+│   │   │   ├── cim_Pss1
+│   │   │   ├── cim_Pss1A
+│   │   │   ├── cim_Pss2B
+│   │   │   ├── cim_Pss2ST
+│   │   │   ├── cim_Pss5
+│   │   │   ├── cim_PssELIN2
+│   │   │   ├── cim_PssIEEE1A
+│   │   │   ├── cim_PssIEEE2B
+│   │   │   ├── cim_PssIEEE3B
+│   │   │   ├── cim_PssIEEE4B
+│   │   │   ├── cim_PssPTIST1
+│   │   │   ├── cim_PssPTIST3
+│   │   │   ├── cim_PssSB4
+│   │   │   ├── cim_PssSH
+│   │   │   ├── cim_PssSK
+│   │   │   └── cim_PssWECC
+│   │   ├── cim_RotatingMachineDynamics
+│   │   │   ├── cim_AsynchronousMachineDynamics
+│   │   │   │   ├── cim_AsynchronousMachineEquivalentCircuit
+│   │   │   │   ├── cim_AsynchronousMachineTimeConstantReactance
+│   │   │   │   └── cim_AsynchronousMachineUserDefined
+│   │   │   └── cim_SynchronousMachineDynamics
+│   │   │       ├── cim_SynchronousMachineDetailed
+│   │   │       │   ├── cim_SynchronousMachineEquivalentCircuit
+│   │   │       │   └── cim_SynchronousMachineTimeConstantReactance
+│   │   │       ├── cim_SynchronousMachineSimplified
+│   │   │       └── cim_SynchronousMachineUserDefined
+│   │   ├── cim_TurbineGovernorDynamics
+│   │   │   ├── cim_GovCT1
+│   │   │   ├── cim_GovCT2
+│   │   │   ├── cim_GovGAST
+│   │   │   ├── cim_GovGAST1
+│   │   │   ├── cim_GovGAST2
+│   │   │   ├── cim_GovGAST3
+│   │   │   ├── cim_GovGAST4
+│   │   │   ├── cim_GovGASTWD
+│   │   │   ├── cim_GovHydro1
+│   │   │   ├── cim_GovHydro2
+│   │   │   ├── cim_GovHydro3
+│   │   │   ├── cim_GovHydro4
+│   │   │   ├── cim_GovHydroDD
+│   │   │   ├── cim_GovHydroFrancis
+│   │   │   ├── cim_GovHydroIEEE0
+│   │   │   ├── cim_GovHydroIEEE2
+│   │   │   ├── cim_GovHydroPID
+│   │   │   ├── cim_GovHydroPID2
+│   │   │   ├── cim_GovHydroPelton
+│   │   │   ├── cim_GovHydroR
+│   │   │   ├── cim_GovHydroWEH
+│   │   │   ├── cim_GovHydroWPID
+│   │   │   ├── cim_GovSteam0
+│   │   │   ├── cim_GovSteam1
+│   │   │   ├── cim_GovSteam2
+│   │   │   ├── cim_GovSteamCC
+│   │   │   ├── cim_GovSteamEU
+│   │   │   ├── cim_GovSteamFV2
+│   │   │   ├── cim_GovSteamFV3
+│   │   │   ├── cim_GovSteamFV4
+│   │   │   ├── cim_GovSteamIEEE1
+│   │   │   ├── cim_GovSteamSGO
+│   │   │   └── cim_TurbineGovernorUserDefined
+│   │   ├── cim_TurbineLoadControllerDynamics
+│   │   │   ├── cim_TurbLCFB1
+│   │   │   └── cim_TurbineLoadControllerUserDefined
+│   │   ├── cim_UnderexcitationLimiterDynamics
+│   │   │   ├── cim_UnderexcLim2Simplified
+│   │   │   ├── cim_UnderexcLimIEEE1
+│   │   │   ├── cim_UnderexcLimIEEE2
+│   │   │   ├── cim_UnderexcLimX1
+│   │   │   ├── cim_UnderexcLimX2
+│   │   │   └── cim_UnderexcitationLimiterUserDefined
+│   │   ├── cim_VoltageAdjusterDynamics
+│   │   │   ├── cim_VAdjIEEE
+│   │   │   └── cim_VoltageAdjusterUserDefined
+│   │   ├── cim_VoltageCompensatorDynamics
+│   │   │   ├── cim_VCompIEEEType1
+│   │   │   ├── cim_VCompIEEEType2
+│   │   │   └── cim_VoltageCompensatorUserDefined
+│   │   ├── cim_WindPlantDynamics
+│   │   │   ├── cim_WindPlantIEC
+│   │   │   └── cim_WindPlantUserDefined
+│   │   ├── cim_WindTurbineType1or2Dynamics
+│   │   │   ├── cim_WindTurbineType1or2IEC
+│   │   │   │   ├── cim_WindGenTurbineType1IEC
+│   │   │   │   └── cim_WindGenTurbineType2IEC
+│   │   │   └── cim_WindType1or2UserDefined
+│   │   └── cim_WindTurbineType3or4Dynamics
+│   │       ├── cim_WindTurbineType3or4IEC
+│   │       │   ├── cim_WindGenTurbineType3IEC
+│   │       │   │   ├── cim_WindGenTurbineType3aIEC
+│   │       │   │   └── cim_WindGenTurbineType3bIEC
+│   │       │   └── cim_WindGenType4IEC
+│   │       │       ├── cim_WindTurbineType4aIEC
+│   │       │       └── cim_WindTurbineType4bIEC
+│   │       └── cim_WindType3or4UserDefined
+│   ├── cim_EnergyArea
+│   │   ├── cim_LoadArea
+│   │   └── cim_SubLoadArea
+│   ├── cim_EnergySchedulingType
+│   ├── cim_FossilFuel
+│   ├── cim_GenICompensationForGenJ
+│   ├── cim_GeographicalRegion
+│   ├── cim_Limit
+│   │   ├── cim_AccumulatorLimit
+│   │   └── cim_AnalogLimit
+│   ├── cim_LimitSet
+│   │   ├── cim_AccumulatorLimitSet
+│   │   └── cim_AnalogLimitSet
+│   ├── cim_LoadDynamics
+│   │   ├── cim_LoadAggregate
+│   │   ├── cim_LoadComposite
+│   │   ├── cim_LoadGenericNonLinear
+│   │   └── cim_LoadUserDefined
+│   ├── cim_LoadGroup
+│   │   ├── cim_ConformLoadGroup
+│   │   └── cim_NonConformLoadGroup
+│   ├── cim_LoadMotor
+│   ├── cim_LoadResponseCharacteristic
+│   ├── cim_LoadStatic
+│   ├── cim_Location
+│   ├── cim_Measurement
+│   │   ├── cim_Accumulator
+│   │   ├── cim_Analog
+│   │   ├── cim_Discrete
+│   │   └── cim_StringMeasurement
+│   ├── cim_MeasurementValue
+│   │   ├── cim_AccumulatorValue
+│   │   ├── cim_AnalogValue
+│   │   ├── cim_DiscreteValue
+│   │   └── cim_StringMeasurementValue
+│   ├── cim_MeasurementValueSource
+│   ├── cim_MutualCoupling
+│   ├── cim_OperationalLimit
+│   │   ├── cim_ActivePowerLimit
+│   │   ├── cim_ApparentPowerLimit
+│   │   ├── cim_CurrentLimit
+│   │   └── cim_VoltageLimit
+│   ├── cim_OperationalLimitSet
+│   ├── cim_OperationalLimitType
+│   ├── cim_PhaseTapChangerTable
+│   ├── cim_PowerSystemResource
+│   │   ├── cim_ConnectivityNodeContainer
+│   │   │   ├── cim_EquipmentContainer
+│   │   │   │   ├── cim_Bay
+│   │   │   │   ├── cim_DCEquipmentContainer
+│   │   │   │   │   ├── cim_DCConverterUnit
+│   │   │   │   │   └── cim_DCLine
+│   │   │   │   ├── cim_Line
+│   │   │   │   ├── cim_Substation
+│   │   │   │   └── cim_VoltageLevel
+│   │   │   └── cim_EquivalentNetwork
+│   │   ├── cim_ControlArea
+│   │   ├── cim_Equipment
+│   │   │   ├── cim_ConductingEquipment
+│   │   │   │   ├── cim_ACDCConverter
+│   │   │   │   │   ├── cim_CsConverter
+│   │   │   │   │   └── cim_VsConverter
+│   │   │   │   ├── cim_Conductor
+│   │   │   │   │   └── cim_ACLineSegment
+│   │   │   │   ├── cim_Connector
+│   │   │   │   │   ├── cim_BusbarSection
+│   │   │   │   │   └── cim_Junction
+│   │   │   │   ├── cim_EarthFaultCompensator
+│   │   │   │   │   ├── cim_GroundingImpedance
+│   │   │   │   │   └── cim_PetersenCoil
+│   │   │   │   ├── cim_EnergyConsumer
+│   │   │   │   │   ├── cim_ConformLoad
+│   │   │   │   │   ├── cim_NonConformLoad
+│   │   │   │   │   └── cim_StationSupply
+│   │   │   │   ├── cim_EnergySource
+│   │   │   │   ├── cim_EquivalentEquipment
+│   │   │   │   │   ├── cim_EquivalentBranch
+│   │   │   │   │   ├── cim_EquivalentInjection
+│   │   │   │   │   └── cim_EquivalentShunt
+│   │   │   │   ├── cim_Ground
+│   │   │   │   ├── cim_PowerTransformer
+│   │   │   │   ├── cim_RegulatingCondEq
+│   │   │   │   │   ├── cim_ExternalNetworkInjection
+│   │   │   │   │   ├── cim_RotatingMachine
+│   │   │   │   │   │   ├── cim_AsynchronousMachine
+│   │   │   │   │   │   └── cim_SynchronousMachine
+│   │   │   │   │   ├── cim_ShuntCompensator
+│   │   │   │   │   │   ├── cim_LinearShuntCompensator
+│   │   │   │   │   │   └── cim_NonlinearShuntCompensator
+│   │   │   │   │   └── cim_StaticVarCompensator
+│   │   │   │   ├── cim_SeriesCompensator
+│   │   │   │   └── cim_Switch
+│   │   │   │       ├── cim_Disconnector
+│   │   │   │       ├── cim_GroundDisconnector
+│   │   │   │       └── cim_ProtectedSwitch
+│   │   │   │           ├── cim_Breaker
+│   │   │   │           └── cim_LoadBreakSwitch
+│   │   │   ├── cim_DCConductingEquipment
+│   │   │   │   ├── cim_DCBusbar
+│   │   │   │   ├── cim_DCChopper
+│   │   │   │   ├── cim_DCGround
+│   │   │   │   ├── cim_DCLineSegment
+│   │   │   │   ├── cim_DCSeriesDevice
+│   │   │   │   ├── cim_DCShunt
+│   │   │   │   └── cim_DCSwitch
+│   │   │   │       ├── cim_DCBreaker
+│   │   │   │       └── cim_DCDisconnector
+│   │   │   ├── cim_GeneratingUnit
+│   │   │   │   ├── cim_HydroGeneratingUnit
+│   │   │   │   ├── cim_NuclearGeneratingUnit
+│   │   │   │   ├── cim_SolarGeneratingUnit
+│   │   │   │   ├── cim_ThermalGeneratingUnit
+│   │   │   │   └── cim_WindGeneratingUnit
+│   │   │   └── cim_HydroPump
+│   │   ├── cim_HydroPowerPlant
+│   │   ├── cim_RegulatingControl
+│   │   │   └── cim_TapChangerControl
+│   │   └── cim_TapChanger
+│   │       ├── cim_PhaseTapChanger
+│   │       │   ├── cim_PhaseTapChangerLinear
+│   │       │   ├── cim_PhaseTapChangerNonLinear
+│   │       │   │   ├── cim_PhaseTapChangerAsymmetrical
+│   │       │   │   └── cim_PhaseTapChangerSymmetrical
+│   │       │   └── cim_PhaseTapChangerTabular
+│   │       └── cim_RatioTapChanger
+│   ├── cim_RatioTapChangerTable
+│   ├── cim_RemoteInputSignal
+│   ├── cim_ReportingGroup
+│   ├── cim_Season
+│   ├── cim_SubGeographicalRegion
+│   ├── cim_TopologicalIsland
+│   ├── cim_TopologicalNode
+│   ├── cim_TransformerEnd
+│   │   └── cim_PowerTransformerEnd
+│   ├── cim_ValueAliasSet
+│   ├── cim_ValueToAlias
+│   ├── cim_VisibilityLayer
+│   ├── cim_WindAeroConstIEC
+│   ├── cim_WindAeroLinearIEC
+│   ├── cim_WindContCurrLimIEC
+│   ├── cim_WindContPType3IEC
+│   ├── cim_WindContPType4aIEC
+│   ├── cim_WindContPType4bIEC
+│   ├── cim_WindContPitchAngleIEC
+│   ├── cim_WindContQIEC
+│   ├── cim_WindContRotorRIEC
+│   ├── cim_WindDynamicsLookupTable
+│   ├── cim_WindMechIEC
+│   ├── cim_WindPitchContEmulIEC
+│   ├── cim_WindPlantFreqPcontrolIEC
+│   ├── cim_WindPlantReactiveControlIEC
+│   └── cim_WindProtectionIEC
+├── cim_NonlinearShuntCompensatorPoint
+├── cim_PerLengthDCLineParameter
+├── cim_PositionPoint
+├── cim_ProprietaryParameterDynamics
+├── cim_Quality61850
+│   └── cim_MeasurementValueQuality
+├── cim_RegularTimePoint
+├── entsoe_StateVariablesVersion
+├── entsoe_SteadyStateHypothesisVersion
+├── cim_SvInjection
+├── cim_SvPowerFlow
+├── cim_SvShuntCompensatorSections
+├── cim_SvStatus
+├── cim_SvTapStep
+├── cim_SvVoltage
+├── cim_TapChangerTablePoint
+│   ├── cim_PhaseTapChangerTablePoint
+│   └── cim_RatioTapChangerTablePoint
+├── cim_TieFlow
+├── entsoe_TopologyBoundaryVersion
+└── entsoe_TopologyVersion
+
+====================================================================================================
+统计信息:
+====================================================================================================
+
+根类及其子类数量:
+  cim_CurveData: 0 个子类
+  entsoe_DiagramLayoutVersion: 0 个子类
+  cim_DiagramObjectGluePoint: 0 个子类
+  cim_DiagramObjectPoint: 0 个子类
+  entsoe_DynamicsVersion: 0 个子类
+  entsoe_EnergySchedulingType: 0 个子类
+  entsoe_EquipmentBoundaryVersion: 0 个子类
+  cim_EquipmentVersion: 0 个子类
+  entsoe_GeographicalLocationVersion: 0 个子类
+  cim_IdentifiedObject: 366 个子类
+  cim_NonlinearShuntCompensatorPoint: 0 个子类
+  cim_PerLengthDCLineParameter: 0 个子类
+  cim_PositionPoint: 0 个子类
+  cim_ProprietaryParameterDynamics: 0 个子类
+  cim_Quality61850: 1 个子类
+  cim_RegularTimePoint: 0 个子类
+  entsoe_StateVariablesVersion: 0 个子类
+  entsoe_SteadyStateHypothesisVersion: 0 个子类
+  cim_SvInjection: 0 个子类
+  cim_SvPowerFlow: 0 个子类
+  cim_SvShuntCompensatorSections: 0 个子类
+  cim_SvStatus: 0 个子类
+  cim_SvTapStep: 0 个子类
+  cim_SvVoltage: 0 个子类
+  cim_TapChangerTablePoint: 2 个子类
+  cim_TieFlow: 0 个子类
+  entsoe_TopologyBoundaryVersion: 0 个子类
+  entsoe_TopologyVersion: 0 个子类
+
+====================================================================================================
+重要类的层次结构:
+====================================================================================================
+
+cim_IdentifiedObject 的子类层次:
+└── cim_IdentifiedObject
+    ├── cim_ACDCTerminal
+    │   ├── cim_DCBaseTerminal
+    │   └── cim_Terminal
+    ├── cim_BaseVoltage
+    ├── cim_BasicIntervalSchedule
+    │   └── cim_RegularIntervalSchedule
+    ├── cim_BusNameMarker
+    ├── cim_ConnectivityNode
+    ├── cim_Control
+    │   ├── cim_AccumulatorReset
+    │   ├── cim_AnalogControl
+    │   └── cim_Command
+    ├── cim_ControlAreaGeneratingUnit
+    ├── cim_CoordinateSystem
+    ├── cim_Curve
+    │   ├── cim_GrossToNetActivePowerCurve
+    │   ├── cim_ReactiveCapabilityCurve
+    │   └── cim_VsCapabilityCurve
+    ├── cim_DCNode
+    ├── cim_DCTopologicalIsland
+    ├── cim_DCTopologicalNode
+    ├── cim_DayType
+    ├── cim_Diagram
+    ├── cim_DiagramObject
+    │   └── cim_TextDiagramObject
+    ├── cim_DiagramObjectStyle
+    ├── cim_DiagramStyle
+    ├── cim_DynamicsFunctionBlock
+    │   ├── cim_DiscontinuousExcitationControlDynamics
+    │   ├── cim_ExcitationSystemDynamics
+    │   ├── cim_MechanicalLoadDynamics
+    │   ├── cim_OverexcitationLimiterDynamics
+    │   ├── cim_PFVArControllerType1Dynamics
+    │   ├── cim_PFVArControllerType2Dynamics
+    │   ├── cim_PowerSystemStabilizerDynamics
+    │   ├── cim_RotatingMachineDynamics
+    │   ├── cim_TurbineGovernorDynamics
+    │   ├── cim_TurbineLoadControllerDynamics
+    │   ├── cim_UnderexcitationLimiterDynamics
+    │   ├── cim_VoltageAdjusterDynamics
+    │   ├── cim_VoltageCompensatorDynamics
+    │   ├── cim_WindPlantDynamics
+    │   ├── cim_WindTurbineType1or2Dynamics
+    │   └── cim_WindTurbineType3or4Dynamics
+    ├── cim_EnergyArea
+    │   ├── cim_LoadArea
+    │   └── cim_SubLoadArea
+    ├── cim_EnergySchedulingType
+    ├── cim_FossilFuel
+    ├── cim_GenICompensationForGenJ
+    ├── cim_GeographicalRegion
+    ├── cim_Limit
+    │   ├── cim_AccumulatorLimit
+    │   └── cim_AnalogLimit
+    ├── cim_LimitSet
+    │   ├── cim_AccumulatorLimitSet
+    │   └── cim_AnalogLimitSet
+    ├── cim_LoadDynamics
+    │   ├── cim_LoadAggregate
+    │   ├── cim_LoadComposite
+    │   ├── cim_LoadGenericNonLinear
+    │   └── cim_LoadUserDefined
+    ├── cim_LoadGroup
+    │   ├── cim_ConformLoadGroup
+    │   └── cim_NonConformLoadGroup
+    ├── cim_LoadMotor
+    ├── cim_LoadResponseCharacteristic
+    ├── cim_LoadStatic
+    ├── cim_Location
+    ├── cim_Measurement
+    │   ├── cim_Accumulator
+    │   ├── cim_Analog
+    │   ├── cim_Discrete
+    │   └── cim_StringMeasurement
+    ├── cim_MeasurementValue
+    │   ├── cim_AccumulatorValue
+    │   ├── cim_AnalogValue
+    │   ├── cim_DiscreteValue
+    │   └── cim_StringMeasurementValue
+    ├── cim_MeasurementValueSource
+    ├── cim_MutualCoupling
+    ├── cim_OperationalLimit
+    │   ├── cim_ActivePowerLimit
+    │   ├── cim_ApparentPowerLimit
+    │   ├── cim_CurrentLimit
+    │   └── cim_VoltageLimit
+    ├── cim_OperationalLimitSet
+    ├── cim_OperationalLimitType
+    ├── cim_PhaseTapChangerTable
+    ├── cim_PowerSystemResource
+    │   ├── cim_ConnectivityNodeContainer
+    │   ├── cim_ControlArea
+    │   ├── cim_Equipment
+    │   ├── cim_HydroPowerPlant
+    │   ├── cim_RegulatingControl
+    │   └── cim_TapChanger
+    ├── cim_RatioTapChangerTable
+    ├── cim_RemoteInputSignal
+    ├── cim_ReportingGroup
+    ├── cim_Season
+    ├── cim_SubGeographicalRegion
+    ├── cim_TopologicalIsland
+    ├── cim_TopologicalNode
+    ├── cim_TransformerEnd
+    │   └── cim_PowerTransformerEnd
+    ├── cim_ValueAliasSet
+    ├── cim_ValueToAlias
+    ├── cim_VisibilityLayer
+    ├── cim_WindAeroConstIEC
+    ├── cim_WindAeroLinearIEC
+    ├── cim_WindContCurrLimIEC
+    ├── cim_WindContPType3IEC
+    ├── cim_WindContPType4aIEC
+    ├── cim_WindContPType4bIEC
+    ├── cim_WindContPitchAngleIEC
+    ├── cim_WindContQIEC
+    ├── cim_WindContRotorRIEC
+    ├── cim_WindDynamicsLookupTable
+    ├── cim_WindMechIEC
+    ├── cim_WindPitchContEmulIEC
+    ├── cim_WindPlantFreqPcontrolIEC
+    ├── cim_WindPlantReactiveControlIEC
+    └── cim_WindProtectionIEC
+
+cim_PowerSystemResource 的子类层次:
+└── cim_PowerSystemResource
+    ├── cim_ConnectivityNodeContainer
+    │   ├── cim_EquipmentContainer
+    │   └── cim_EquivalentNetwork
+    ├── cim_ControlArea
+    ├── cim_Equipment
+    │   ├── cim_ConductingEquipment
+    │   ├── cim_DCConductingEquipment
+    │   ├── cim_GeneratingUnit
+    │   └── cim_HydroPump
+    ├── cim_HydroPowerPlant
+    ├── cim_RegulatingControl
+    │   └── cim_TapChangerControl
+    └── cim_TapChanger
+        ├── cim_PhaseTapChanger
+        └── cim_RatioTapChanger
+
+cim_Measurement 的子类层次:
+└── cim_Measurement
+    ├── cim_Accumulator
+    ├── cim_Analog
+    ├── cim_Discrete
+    └── cim_StringMeasurement
+
+cim_Control 的子类层次:
+└── cim_Control
+    ├── cim_AccumulatorReset
+    ├── cim_AnalogControl
+    │   ├── cim_RaiseLowerCommand
+    │   └── cim_SetPoint
+    └── cim_Command
+
+cim_Equipment 的子类层次:
+└── cim_Equipment
+    ├── cim_ConductingEquipment
+    │   ├── cim_ACDCConverter
+    │   ├── cim_Conductor
+    │   ├── cim_Connector
+    │   ├── cim_EarthFaultCompensator
+    │   ├── cim_EnergyConsumer
+    │   ├── cim_EnergySource
+    │   ├── cim_EquivalentEquipment
+    │   ├── cim_Ground
+    │   ├── cim_PowerTransformer
+    │   ├── cim_RegulatingCondEq
+    │   ├── cim_SeriesCompensator
+    │   └── cim_Switch
+    ├── cim_DCConductingEquipment
+    │   ├── cim_DCBusbar
+    │   ├── cim_DCChopper
+    │   ├── cim_DCGround
+    │   ├── cim_DCLineSegment
+    │   ├── cim_DCSeriesDevice
+    │   ├── cim_DCShunt
+    │   └── cim_DCSwitch
+    ├── cim_GeneratingUnit
+    │   ├── cim_HydroGeneratingUnit
+    │   ├── cim_NuclearGeneratingUnit
+    │   ├── cim_SolarGeneratingUnit
+    │   ├── cim_ThermalGeneratingUnit
+    │   └── cim_WindGeneratingUnit
+    └── cim_HydroPump
+
+cim_ConductingEquipment 的子类层次:
+└── cim_ConductingEquipment
+    ├── cim_ACDCConverter
+    │   ├── cim_CsConverter
+    │   └── cim_VsConverter
+    ├── cim_Conductor
+    │   └── cim_ACLineSegment
+    ├── cim_Connector
+    │   ├── cim_BusbarSection
+    │   └── cim_Junction
+    ├── cim_EarthFaultCompensator
+    │   ├── cim_GroundingImpedance
+    │   └── cim_PetersenCoil
+    ├── cim_EnergyConsumer
+    │   ├── cim_ConformLoad
+    │   ├── cim_NonConformLoad
+    │   └── cim_StationSupply
+    ├── cim_EnergySource
+    ├── cim_EquivalentEquipment
+    │   ├── cim_EquivalentBranch
+    │   ├── cim_EquivalentInjection
+    │   └── cim_EquivalentShunt
+    ├── cim_Ground
+    ├── cim_PowerTransformer
+    ├── cim_RegulatingCondEq
+    │   ├── cim_ExternalNetworkInjection
+    │   ├── cim_RotatingMachine
+    │   ├── cim_ShuntCompensator
+    │   └── cim_StaticVarCompensator
+    ├── cim_SeriesCompensator
+    └── cim_Switch
+        ├── cim_Disconnector
+        ├── cim_GroundDisconnector
+        └── cim_ProtectedSwitch
+
+====================================================================================================
+完成!
+====================================================================================================
