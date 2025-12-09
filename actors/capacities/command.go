@@ -20,8 +20,8 @@ type CommandCapacity struct {
 func NewCommandCapacity(controlID string) *CommandCapacity {
 	return &CommandCapacity{
 		BaseCapacity: BaseCapacity{
-			controlID: controlID,
-			name:      "CommandCapacity",
+			resourceID: controlID,
+			name:       "CommandCapacity",
 		},
 	}
 }

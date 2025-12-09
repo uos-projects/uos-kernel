@@ -114,8 +114,8 @@ func TestCapacityFactory(t *testing.T) {
 			t.Errorf("Expected name %s, got %s", tc.expectedName, capacity.Name())
 		}
 
-		if capacity.ControlID() != tc.controlID {
-			t.Errorf("Expected ControlID %s, got %s", tc.controlID, capacity.ControlID())
+		if capacity.ResourceID() != tc.controlID {
+			t.Errorf("Expected ResourceID %s, got %s", tc.controlID, capacity.ResourceID())
 		}
 	}
 

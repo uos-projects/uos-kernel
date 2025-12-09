@@ -19,8 +19,8 @@ type RaiseLowerCommandCapacity struct {
 func NewRaiseLowerCommandCapacity(controlID string) *RaiseLowerCommandCapacity {
 	return &RaiseLowerCommandCapacity{
 		BaseCapacity: BaseCapacity{
-			controlID: controlID,
-			name:      "RaiseLowerCommandCapacity",
+			resourceID: controlID,
+			name:       "RaiseLowerCommandCapacity",
 		},
 	}
 }

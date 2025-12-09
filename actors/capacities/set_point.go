@@ -19,8 +19,8 @@ type SetPointCapacity struct {
 func NewSetPointCapacity(controlID string) *SetPointCapacity {
 	return &SetPointCapacity{
 		BaseCapacity: BaseCapacity{
-			controlID: controlID,
-			name:      "SetPointCapacity",
+			resourceID: controlID,
+			name:       "SetPointCapacity",
 		},
 	}
 }

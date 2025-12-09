@@ -12,6 +12,7 @@
 3. [代码重构与优化](#3-代码重构与优化)
 4. [Actor 之间消息传递](#4-actor-之间消息传递)
 5. [PowerSystemResource 关联关系分析](#5-powersystemresource-关联关系分析)
+6. [Measurement Capacity 支持](#6-measurement-capacity-支持)
 
 ---
 
@@ -39,11 +40,16 @@ actors/
 │   ├── accumulator_reset.go
 │   ├── command.go
 │   ├── raise_lower_command.go
-│   └── set_point.go
+│   ├── set_point.go
+│   └── analog_measurement.go   # Measurement Capacity
+├── mq/                         # MQ Consumer 接口和实现
+│   ├── consumer.go             # MQ Consumer 接口
+│   └── mock_consumer.go        # Mock MQ Consumer（用于测试）
 └── cmd/                        # 示例程序
     ├── example/
     ├── resource_example/
-    └── actor_communication_example/
+    ├── actor_communication_example/
+    └── measurement_example/   # Measurement 使用示例
 ```
 
 ---
@@ -79,9 +85,14 @@ type Capacity interface {
     Name() string
     CanHandle(msg Message) bool
     Execute(ctx context.Context, msg Message) error
-    ControlID() string
+    ResourceID() string  // 通用资源 ID（可以是 ControlID 或 MeasurementID）
 }
 ```
+
+**接口演进**：
+- 初始版本使用 `ControlID()`，仅支持 Control 类型
+- 为支持 Measurement，改为通用的 `ResourceID()`
+- 保持向后兼容：`ControlID()` 和 `MeasurementID()` 作为便捷方法
 
 ### 2.3 设计优势
 
@@ -217,15 +228,200 @@ PowerSystemResource 还包含以下数据类型属性：
 这些关联关系可以映射到 Actor 系统中：
 
 - **Control** → Capacity（已实现）
-- **Measurement** → 可以添加 Measurement 相关的能力或属性
+- **Measurement** → Capacity（已实现，见第6节）
 - **Location** → 可以作为 Actor 的属性
 - **DiagramObject** → 可以作为 Actor 的可视化属性
 
 ---
 
-## 6. 关键设计决策总结
+## 6. Measurement Capacity 支持
 
-### 6.1 Capacity 使用 Interface 实现
+### 6.1 概述
+
+实现了 Measurement（测量）Capacity 支持，使 `PowerSystemResourceActor` 能够从外部 MQ 系统订阅测量数据。每个 `PowerSystemResource` 如果关联了 `Measurement`，则对应的 Actor 可以通过 `MeasurementCapacity` 订阅并处理测量值。
+
+### 6.2 设计决策
+
+#### 统一 Capacity 接口
+
+采用**不区分 Control 和 Measurement** 的设计方案，两者都实现统一的 `Capacity` 接口：
+
+- **优点**：
+  - 架构统一，代码简洁
+  - 消息驱动，符合 Actor 模式
+  - 易于扩展和维护
+  - 通过消息类型自然区分功能
+
+- **接口优化**：
+  - 将 `ControlID()` 改为通用的 `ResourceID()`
+  - 保持向后兼容（`ControlID()` 和 `MeasurementID()` 作为便捷方法）
+
+#### 生命周期管理
+
+Measurement Capacity 需要启动 MQ 订阅，这通过可选接口实现：
+
+```go
+// 可选接口：需要订阅的 Capacity
+type SubscriptionStarter interface {
+    StartSubscription(context.Context) error
+}
+
+// 可选接口：需要设置 Actor 引用的 Capacity
+type ActorRefSetter interface {
+    SetActorRef(interface { Send(Message) bool })
+}
+```
+
+`PowerSystemResourceActor.Start()` 方法会自动检测并启动所有需要订阅的 Capacity。
+
+### 6.3 架构组件
+
+#### MQ Consumer 接口
+
+**位置**: `actors/mq/consumer.go`
+
+```go
+type MQConsumer interface {
+    Consume(ctx context.Context, topic string) (*MQMessage, error)
+    Subscribe(ctx context.Context, topic string) (<-chan *MQMessage, error)
+    Close() error
+}
+```
+
+**实现**:
+- `MockMQConsumer`: 用于测试和开发的模拟实现
+
+#### AnalogMeasurementCapacity
+
+**位置**: `actors/capacities/analog_measurement.go`
+
+**功能**:
+- 订阅 MQ topic（格式：`measurement/{measurementID}`）
+- 接收测量值消息
+- 更新内部状态（当前值缓存）
+- 通过 Actor 的 mailbox 发送消息给自身处理
+
+**消息类型**:
+```go
+type AnalogMeasurementValueMessage struct {
+    MeasurementID string
+    Value         float64
+    Timestamp     time.Time
+    Quality       mq.QualityCode
+    Source        string
+}
+```
+
+#### PowerSystemResourceActor 扩展
+
+**新增功能**:
+- `Start()` 方法重写：自动启动所有 Measurement Capacity 的订阅
+- 自动设置 Actor 引用（用于 Capacity 向 Actor 发送消息）
+
+### 6.4 使用示例
+
+#### 基本使用
+
+```go
+// 1. 创建 MQ 消费者
+mqConsumer := mq.NewMockMQConsumer()
+defer mqConsumer.Close()
+
+// 2. 创建 Actor
+actor := actors.NewPowerSystemResourceActor("GEN_001", "SynchronousMachine", nil)
+
+// 3. 添加 Measurement Capacity
+powerMeasurement := capacities.NewAnalogMeasurementCapacity(
+    "MEAS_POWER_001",
+    "ThreePhaseActivePower",
+    mqConsumer,
+)
+actor.AddCapacity(powerMeasurement)
+
+// 4. 启动 Actor（会自动启动订阅）
+actor.Start(ctx)
+
+// 5. 外部系统发布测量数据
+msg := &mq.MQMessage{
+    Value:     1000.0,
+    Timestamp: time.Now(),
+    Quality:   mq.QualityGood,
+    Source:    "SCADA",
+}
+mqConsumer.Publish("measurement/MEAS_POWER_001", msg)
+
+// 6. 获取当前测量值
+if measCap, ok := actor.GetCapacity("AnalogMeasurementCapacity"); ok {
+    if analogCap, ok := measCap.(*capacities.AnalogMeasurementCapacity); ok {
+        currentValue := analogCap.GetCurrentValue()
+        fmt.Printf("当前值: %.2f\n", currentValue.Value)
+    }
+}
+```
+
+#### 使用 CapacityFactory
+
+```go
+// 创建带 MQ 的工厂
+factory := actors.NewCapacityFactoryWithMQ(mqConsumer)
+
+// 创建 Measurement Capacity
+capacity, err := factory.CreateMeasurementCapacity(
+    "AnalogMeasurement",
+    "MEAS_POWER_001",
+    "ThreePhaseActivePower",
+)
+```
+
+### 6.5 数据流
+
+```
+外部系统 (SCADA/RTU)
+    ↓ 发布消息
+MQ (Kafka/RabbitMQ/etc.)
+    ↓ 订阅
+AnalogMeasurementCapacity.consumeLoop()
+    ↓ 转换消息
+AnalogMeasurementValueMessage
+    ↓ 发送到 mailbox
+PowerSystemResourceActor.mailbox
+    ↓ Receive()
+PowerSystemResourceActor.Receive()
+    ↓ 路由到 Capacity
+AnalogMeasurementCapacity.Execute()
+    ↓ 更新状态
+currentValue 缓存
+```
+
+### 6.6 扩展指南
+
+#### 添加新的 Measurement 类型
+
+1. 创建新的 Capacity 实现（如 `DiscreteMeasurementCapacity`）
+2. 实现 `Capacity` 接口
+3. 实现 `StartSubscription()` 方法（如果需要订阅）
+4. 实现 `SetActorRef()` 方法（如果需要向 Actor 发送消息）
+5. 在 `CapacityFactory` 中注册
+
+#### 集成真实的 MQ 系统
+
+实现 `MQConsumer` 接口：
+
+```go
+type KafkaConsumer struct {
+    // Kafka 客户端
+}
+
+func (k *KafkaConsumer) Subscribe(ctx context.Context, topic string) (<-chan *mq.MQMessage, error) {
+    // 实现 Kafka 订阅逻辑
+}
+```
+
+---
+
+## 7. 关键设计决策总结
+
+### 7.1 Capacity 使用 Interface 实现
 
 ✅ **决策**: 使用 Go 的 interface 实现 Capacity
 
@@ -235,7 +431,22 @@ PowerSystemResource 还包含以下数据类型属性：
 - 解耦：Actor 与具体能力实现解耦
 - 动态发现：运行时根据 CIM 关联关系添加能力
 
-### 6.2 不為 PowerSystemResource 子类创建不同的 Actor 类型
+### 7.2 统一 Capacity 接口（Control 和 Measurement）
+
+✅ **决策**: Control 和 Measurement 都实现统一的 `Capacity` 接口
+
+**优势**:
+- 架构统一，代码简洁
+- 消息驱动，符合 Actor 模式
+- 易于扩展和维护
+- 通过消息类型自然区分功能
+
+**实现细节**:
+- 使用通用的 `ResourceID()` 替代 `ControlID()`
+- 保持向后兼容（`ControlID()` 和 `MeasurementID()` 作为便捷方法）
+- Measurement Capacity 通过可选接口实现生命周期管理（订阅启动）
+
+### 7.3 不為 PowerSystemResource 子类创建不同的 Actor 类型
 
 ✅ **决策**: 保持通用的 `PowerSystemResourceActor`
 
@@ -245,7 +456,7 @@ PowerSystemResource 还包含以下数据类型属性：
 - 符合组合优于继承：通过 Capacity 组合实现差异化
 - 灵活性：运行时动态添加/移除能力
 
-### 6.3 文件组织
+### 7.4 文件组织
 
 ✅ **决策**: 
 - Capacity 拆分到 `capacities/` 目录，每个 Capacity 一个文件
@@ -254,52 +465,59 @@ PowerSystemResource 还包含以下数据类型属性：
 
 ---
 
-## 7. 实现的功能
+## 8. 实现的功能
 
-### 7.1 核心功能
+### 8.1 核心功能
 
 - ✅ 基础 Actor 系统
 - ✅ PowerSystemResourceActor（资源 Actor）
-- ✅ Capacity 接口和实现
+- ✅ Capacity 接口和实现（统一支持 Control 和 Measurement）
 - ✅ CapacityFactory（能力工厂）
 - ✅ 消息路由到 Capacity
 - ✅ 动态能力管理（添加/移除/查询）
 - ✅ Actor 之间消息传递（ActorRef 模式）
+- ✅ Measurement Capacity 支持（MQ 订阅）
 
-### 7.2 已实现的 Capacity
+### 8.2 已实现的 Capacity
 
+**Control Capacity**:
 - `AccumulatorResetCapacity` - 累加器复位能力
 - `CommandCapacity` - 命令能力
 - `RaiseLowerCommandCapacity` - 升降命令能力
 - `SetPointCapacity` - 设定点能力
 
-### 7.3 示例程序
+**Measurement Capacity**:
+- `AnalogMeasurementCapacity` - 模拟量测量订阅能力
+
+### 8.3 MQ 支持
+
+- `MQConsumer` 接口 - MQ 消费者抽象
+- `MockMQConsumer` - 模拟 MQ 消费者（用于测试和开发）
+
+### 8.4 示例程序
 
 - `cmd/example/` - 基础 Actor 使用示例
 - `cmd/resource_example/` - PowerSystemResourceActor 使用示例
 - `cmd/actor_communication_example/` - Actor 之间通信示例
+- `cmd/measurement_example/` - Measurement Capacity 使用示例
 
 ---
 
-## 8. 未来扩展方向
+## 9. 未来扩展方向
 
-### 8.1 基于 PowerSystemResource 关联关系的扩展
+### 9.1 基于 PowerSystemResource 关联关系的扩展
 
 根据分析结果，可以考虑以下扩展：
 
-1. **Measurement 支持**
-   - 添加 Measurement 相关的 Capacity 或属性
-   - 支持测量值的查询和订阅
-
-2. **Location 支持**
+1. **Location 支持**
    - 在 PowerSystemResourceActor 中添加 Location 属性
    - 支持地理位置查询和 GIS 集成
 
-3. **DiagramObject 支持**
+2. **DiagramObject 支持**
    - 添加可视化相关的属性
    - 支持图形化显示
 
-### 8.2 其他扩展方向
+### 9.2 其他扩展方向
 
 - [ ] 从 CIM 数据自动创建 Actor 和 Capacity
 - [ ] Actor 监控和指标
@@ -311,7 +529,7 @@ PowerSystemResource 还包含以下数据类型属性：
 
 ---
 
-## 9. 相关脚本文件
+## 10. 相关脚本文件
 
 本次分析过程中创建的脚本文件：
 
@@ -320,12 +538,27 @@ PowerSystemResource 还包含以下数据类型属性：
 
 ---
 
-## 10. 关键发现
+## 11. 关键发现
 
 1. **Control 类数量**: CIM16 schema 中有 22 个 Control 相关的类
 2. **PowerSystemResource 关联**: 除了 Control，还关联了 Measurement、Location、DiagramObject
-3. **Capacity 设计**: 使用 interface 实现，支持动态扩展
+3. **Capacity 设计**: 使用 interface 实现，支持动态扩展，统一支持 Control 和 Measurement
 4. **Actor 通信**: 通过 ActorRef 模式实现 Actor 之间的消息传递
+5. **Measurement 支持**: 通过 MQ 订阅机制实现测量数据的实时获取和处理
+
+## 12. 相关文件
+
+### 核心文件
+- `actors/capacities/accumulator_reset.go`: Capacity 接口定义和 AccumulatorResetCapacity
+- `actors/capacities/analog_measurement.go`: AnalogMeasurementCapacity 实现
+- `actors/mq/consumer.go`: MQ Consumer 接口
+- `actors/mq/mock_consumer.go`: Mock MQ Consumer 实现
+- `actors/resource_actor.go`: PowerSystemResourceActor（包含启动订阅逻辑）
+- `actors/capacity_factory.go`: Capacity 工厂（支持创建 Measurement Capacity）
+
+### 示例和测试
+- `actors/cmd/measurement_example/main.go`: Measurement Capacity 使用示例
+- `actors/resource_actor_test.go`: 测试文件
 
 ---
 

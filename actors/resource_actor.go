@@ -111,3 +111,36 @@ func (a *PowerSystemResourceActor) Receive(ctx context.Context, msg Message) err
 	// 如果也没有默认行为，返回错误
 	return fmt.Errorf("no capacity can handle message type %T", msg)
 }
+
+// Start 启动 Actor（扩展基类方法，启动所有需要订阅的 Capacity）
+func (a *PowerSystemResourceActor) Start(ctx context.Context) error {
+	// 先调用基类的 Start
+	if err := a.BaseActor.Start(ctx); err != nil {
+		return err
+	}
+
+	// 启动所有需要订阅的 Capacity
+	for _, capacity := range a.capabilities {
+		// 检查是否有 StartSubscription 方法（可选接口）
+		if starter, ok := capacity.(interface {
+			StartSubscription(context.Context) error
+		}); ok {
+			// 设置 Actor 引用（如果 Capacity 支持）
+			if setter, ok := capacity.(interface {
+				SetActorRef(interface {
+					Send(Message) bool
+				})
+			}); ok {
+				setter.SetActorRef(a)
+			}
+
+			// 启动订阅
+			if err := starter.StartSubscription(ctx); err != nil {
+				return fmt.Errorf("failed to start subscription for capacity %s: %w",
+					capacity.Name(), err)
+			}
+		}
+	}
+
+	return nil
+}
