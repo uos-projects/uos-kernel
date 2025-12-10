@@ -125,7 +125,14 @@ func (a *PowerSystemResourceActor) Start(ctx context.Context) error {
 		if starter, ok := capacity.(interface {
 			StartSubscription(context.Context) error
 		}); ok {
-			// 设置 Actor 引用（如果 Capacity 支持）
+			// 设置 Capacity 引用和 context（优先使用，直接调用 Execute）
+			if capacitySetter, ok := capacity.(interface {
+				SetCapacityRef(capacities.Capacity, context.Context)
+			}); ok {
+				capacitySetter.SetCapacityRef(capacity, ctx)
+			}
+
+			// 设置 Actor 引用（向后兼容，如果 Capacity 不支持 SetCapacityRef）
 			if setter, ok := capacity.(interface {
 				SetActorRef(interface {
 					Send(Message) bool

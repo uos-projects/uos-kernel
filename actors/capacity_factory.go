@@ -50,6 +50,21 @@ func (f *CapacityFactory) CreateCapacity(controlType string, resourceID string) 
 		}
 		// 默认测量类型，可以通过额外参数指定
 		return capacities.NewAnalogMeasurementCapacity(resourceID, "AnalogMeasurement", f.mqConsumer), nil
+	case "AccumulatorMeasurement":
+		if f.mqConsumer == nil {
+			return nil, fmt.Errorf("MQ consumer is required for AccumulatorMeasurement capacity")
+		}
+		return capacities.NewAccumulatorMeasurementCapacity(resourceID, "AccumulatorMeasurement", f.mqConsumer), nil
+	case "DiscreteMeasurement":
+		if f.mqConsumer == nil {
+			return nil, fmt.Errorf("MQ consumer is required for DiscreteMeasurement capacity")
+		}
+		return capacities.NewDiscreteMeasurementCapacity(resourceID, "DiscreteMeasurement", f.mqConsumer), nil
+	case "StringMeasurement":
+		if f.mqConsumer == nil {
+			return nil, fmt.Errorf("MQ consumer is required for StringMeasurement capacity")
+		}
+		return capacities.NewStringMeasurementCapacity(resourceID, "StringMeasurement", f.mqConsumer), nil
 	default:
 		return nil, fmt.Errorf("unknown capacity type: %s", controlType)
 	}
@@ -68,6 +83,12 @@ func (f *CapacityFactory) CreateMeasurementCapacity(
 	switch measurementType {
 	case "AnalogMeasurement":
 		return capacities.NewAnalogMeasurementCapacity(measurementID, measurementSubType, f.mqConsumer), nil
+	case "AccumulatorMeasurement":
+		return capacities.NewAccumulatorMeasurementCapacity(measurementID, measurementSubType, f.mqConsumer), nil
+	case "DiscreteMeasurement":
+		return capacities.NewDiscreteMeasurementCapacity(measurementID, measurementSubType, f.mqConsumer), nil
+	case "StringMeasurement":
+		return capacities.NewStringMeasurementCapacity(measurementID, measurementSubType, f.mqConsumer), nil
 	default:
 		return nil, fmt.Errorf("unknown measurement type: %s", measurementType)
 	}
