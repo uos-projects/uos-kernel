@@ -1,0 +1,316 @@
+# CIM 业务逻辑规则（SWRL）示例
+
+## 1. 开关状态一致性规则
+
+### 规则 1.1: 开关断开时端子不连接
+```
+Switch(?s) ∧ Terminal(?t) ∧ connectsTo(?t, ?s) ∧ open(?s, true) 
+→ 
+connected(?t, false)
+```
+用途: 确保开关状态与端子连接状态一致
+
+### 规则 1.2: 断路器断开时功率流为0
+```
+Breaker(?b) ∧ Terminal(?t) ∧ connectsTo(?t, ?b) ∧ open(?b, true) 
+∧ SvPowerFlow(?pf) ∧ connectsTo(?pf, ?t) 
+→ 
+powerFlow(?pf, 0)
+```
+用途: 确保断路器断开时没有功率传输
+
+### 规则 1.3: 开关闭合时端子连接
+```
+Switch(?s) ∧ Terminal(?t) ∧ connectsTo(?t, ?s) ∧ open(?s, false) 
+→ 
+connected(?t, true)
+```
+用途: 确保开关闭合时端子连接
+
+## 2. 电气连接推理规则
+
+### 规则 2.1: 同一连接节点的端子电气连接
+```
+Terminal(?t1) ∧ Terminal(?t2) ∧ ConnectivityNode(?cn) 
+∧ connectsTo(?t1, ?cn) ∧ connectsTo(?t2, ?cn) ∧ notEqual(?t1, ?t2) 
+→ 
+electricallyConnected(?t1, ?t2)
+```
+用途: 自动识别电气连接关系
+
+### 规则 2.2: 通过连接节点连接的设备
+```
+ConductingEquipment(?e1) ∧ ConductingEquipment(?e2) 
+∧ Terminal(?t1) ∧ Terminal(?t2) ∧ ConnectivityNode(?cn) 
+∧ connectsTo(?t1, ?e1) ∧ connectsTo(?t2, ?e2) 
+∧ connectsTo(?t1, ?cn) ∧ connectsTo(?t2, ?cn) 
+→ 
+electricallyConnected(?e1, ?e2)
+```
+用途: 自动识别设备之间的电气连接
+
+### 规则 2.3: 闭合开关连接的设备
+```
+Switch(?s) ∧ ConductingEquipment(?e1) ∧ ConductingEquipment(?e2) 
+∧ Terminal(?t1) ∧ Terminal(?t2) 
+∧ connectsTo(?t1, ?e1) ∧ connectsTo(?t2, ?e2) 
+∧ connectsTo(?t1, ?s) ∧ connectsTo(?t2, ?s) ∧ open(?s, false) 
+→ 
+electricallyConnected(?e1, ?e2)
+```
+用途: 识别通过开关连接的设备
+
+## 3. 电压等级一致性规则
+
+### 规则 3.1: 端子与设备电压一致
+```
+Terminal(?t) ∧ ConductingEquipment(?e) ∧ BaseVoltage(?bv1) ∧ BaseVoltage(?bv2) 
+∧ connectsTo(?t, ?e) ∧ hasBaseVoltage(?t, ?bv1) ∧ hasBaseVoltage(?e, ?bv2) 
+→ 
+sameVoltage(?bv1, ?bv2)
+```
+用途: 确保电压等级一致性
+
+### 规则 3.2: 线路段两端电压一致
+```
+ACLineSegment(?line) ∧ Terminal(?t1) ∧ Terminal(?t2) 
+∧ BaseVoltage(?bv1) ∧ BaseVoltage(?bv2) 
+∧ connectsTo(?t1, ?line) ∧ connectsTo(?t2, ?line) 
+∧ hasBaseVoltage(?t1, ?bv1) ∧ hasBaseVoltage(?t2, ?bv2) 
+→ 
+sameVoltage(?bv1, ?bv2)
+```
+用途: 确保线路段电压一致性
+
+## 4. 功率流一致性规则
+
+### 规则 4.1: 设备停运时功率流为0
+```
+ConductingEquipment(?e) ∧ Terminal(?t) ∧ SvPowerFlow(?pf) ∧ SvStatus(?s) 
+∧ connectsTo(?t, ?e) ∧ connectsTo(?pf, ?t) ∧ connectsTo(?s, ?e) 
+∧ inService(?s, false) 
+→ 
+powerFlow(?pf, 0)
+```
+用途: 确保停运设备没有功率流
+
+### 规则 4.2: 断开开关功率流为0
+```
+Switch(?s) ∧ Terminal(?t) ∧ SvPowerFlow(?pf) 
+∧ connectsTo(?t, ?s) ∧ connectsTo(?pf, ?t) ∧ open(?s, true) 
+→ 
+powerFlow(?pf, 0)
+```
+用途: 确保断开开关没有功率流
+
+### 规则 4.3: 功率守恒（基尔霍夫电流定律）
+```
+TopologicalNode(?tn) ∧ Terminal(?t) ∧ SvPowerFlow(?pf) 
+∧ connectsTo(?pf, ?t) ∧ connectsTo(?t, ?tn) 
+→ 
+sumPowerFlow(?tn, ?pf)
+```
+用途: 验证功率守恒
+
+## 5. 测量关联规则
+
+### 规则 5.1: 电压测量关联节点
+```
+SvVoltage(?sv) 
+→ 
+exists(?tn, TopologicalNode(?tn) ∧ connectsTo(?sv, ?tn))
+```
+用途: 确保电压测量有对应的节点
+
+### 规则 5.2: 功率流测量关联端子
+```
+SvPowerFlow(?pf) 
+→ 
+exists(?t, Terminal(?t) ∧ connectsTo(?pf, ?t))
+```
+用途: 确保功率流测量有对应的端子
+
+### 规则 5.3: 测量值时间一致性
+```
+SvVoltage(?sv) ∧ SvPowerFlow(?pf) ∧ TopologicalNode(?tn) ∧ Terminal(?t) 
+∧ connectsTo(?sv, ?tn) ∧ connectsTo(?pf, ?t) ∧ connectsTo(?t, ?tn) 
+∧ time(?sv, ?ts) ∧ time(?pf, ?tp) 
+→ 
+sameTime(?ts, ?tp)
+```
+用途: 确保测量值时间一致性
+
+## 6. 限制约束规则
+
+### 规则 6.1: 电流限制值必须为正
+```
+CurrentLimit(?cl) ∧ value(?cl, ?v) 
+→ 
+greaterThan(?v, 0)
+```
+用途: 确保限制值合理
+
+### 规则 6.2: 电压限制范围
+```
+VoltageLimit(?vl) ∧ value(?vl, ?v) ∧ minValue(?vl, ?min) ∧ maxValue(?vl, ?max) 
+→ 
+greaterThanOrEqual(?v, ?min) ∧ lessThanOrEqual(?v, ?max)
+```
+用途: 确保电压限制合理
+
+### 规则 6.3: 限制必须关联设备或端子
+```
+OperationalLimit(?ol) 
+→ 
+(exists(?t, Terminal(?t) ∧ connectsTo(?ol, ?t)) 
+ ∨ exists(?e, Equipment(?e) ∧ connectsTo(?ol, ?e)))
+```
+用途: 确保限制有明确的关联对象
+
+## 7. 拓扑完整性规则
+
+### 规则 7.1: 设备包含传递性
+```
+EquipmentContainer(?a) ∧ EquipmentContainer(?b) ∧ EquipmentContainer(?c) 
+∧ contains(?a, ?b) ∧ contains(?b, ?c) 
+→ 
+contains(?a, ?c)
+```
+用途: 自动推理设备包含关系
+
+### 规则 7.2: 变电站包含电压等级
+```
+Substation(?s) 
+→ 
+exists(?vl, VoltageLevel(?vl) ∧ contains(?s, ?vl))
+```
+用途: 确保变电站结构完整
+
+### 规则 7.3: 电压等级包含设备
+```
+VoltageLevel(?vl) 
+→ 
+exists(?e, Equipment(?e) ∧ contains(?vl, ?e))
+```
+用途: 确保电压等级有设备
+
+## 8. 变压器相关规则
+
+### 规则 8.1: 变压器绕组数量
+```
+PowerTransformer(?pt) 
+→ 
+count(PowerTransformerEnd, ?pt, ?count) ∧ greaterThanOrEqual(?count, 2)
+```
+用途: 确保变压器有足够的绕组
+
+### 规则 8.2: 变压器绕组电压
+```
+PowerTransformerEnd(?pte) ∧ Terminal(?t) ∧ BaseVoltage(?bv1) ∧ BaseVoltage(?bv2) 
+∧ connectsTo(?pte, ?t) ∧ hasBaseVoltage(?pte, ?bv1) ∧ hasBaseVoltage(?t, ?bv2) 
+→ 
+sameVoltage(?bv1, ?bv2)
+```
+用途: 确保变压器绕组电压一致性
+
+## 9. 数据质量规则
+
+### 规则 9.1: 测量值范围检查
+```
+Measurement(?m) ∧ value(?m, ?v) ∧ minValue(?m, ?min) ∧ maxValue(?m, ?max) 
+→ 
+greaterThanOrEqual(?v, ?min) ∧ lessThanOrEqual(?v, ?max)
+```
+用途: 确保测量值合理
+
+### 规则 9.2: 阻抗参数合理性
+```
+ACLineSegment(?line) ∧ r(?line, ?r) ∧ x(?line, ?x) 
+→ 
+greaterThan(?r, 0) ∧ greaterThan(?x, 0)
+```
+用途: 确保线路参数合理
+
+### 规则 9.3: 设备名称唯一性
+```
+EquipmentContainer(?ec) ∧ Equipment(?e1) ∧ Equipment(?e2) 
+∧ contains(?ec, ?e1) ∧ contains(?ec, ?e2) 
+∧ name(?e1, ?n1) ∧ name(?e2, ?n2) ∧ equal(?n1, ?n2) 
+→ 
+equal(?e1, ?e2)
+```
+用途: 确保设备名称唯一性
+
+## 10. 安全操作规则
+
+### 规则 10.1: 接地操作安全
+```
+GroundAction(?ga) ∧ ConductingEquipment(?e) ∧ connectsTo(?ga, ?e) ∧ type(?e, ?t) 
+→ 
+allowedForGrounding(?t)
+```
+用途: 确保接地操作安全
+
+### 规则 10.2: 操作权限检查
+```
+SwitchingAction(?sa) ∧ Person(?p) ∧ executes(?sa, ?p) 
+∧ PersonRole(?pr) ∧ hasRole(?p, ?pr) 
+→ 
+hasPermission(?pr, ?sa)
+```
+用途: 确保操作权限正确
+
+## 11. 线路参数规则
+
+### 规则 11.1: 线路段必须有阻抗
+```
+ACLineSegment(?line) 
+→ 
+exists(?r, r(?line, ?r)) ∧ exists(?x, x(?line, ?x))
+```
+用途: 确保线路段有必要的电气参数
+
+### 规则 11.2: 线路段长度合理性
+```
+ACLineSegment(?line) ∧ length(?line, ?l) 
+→ 
+greaterThan(?l, 0)
+```
+用途: 确保线路长度合理
+
+## 12. 拓扑节点规则
+
+### 规则 12.1: 拓扑节点必须有电压
+```
+TopologicalNode(?tn) 
+→ 
+exists(?sv, SvVoltage(?sv) ∧ connectsTo(?sv, ?tn))
+```
+用途: 确保拓扑节点有电压信息
+
+### 规则 12.2: 拓扑节点连接完整性
+```
+TopologicalNode(?tn) ∧ Terminal(?t) ∧ connectsTo(?t, ?tn) 
+→ 
+exists(?cn, ConnectivityNode(?cn) ∧ connectsTo(?t, ?cn))
+```
+用途: 确保拓扑节点与连接节点的对应关系
+
+## 总结
+
+以上规则涵盖了：
+- 状态一致性（开关、设备状态）
+- 电气连接推理（拓扑、电气连接）
+- 电压等级一致性
+- 功率流一致性
+- 测量关联
+- 限制约束
+- 拓扑完整性
+- 变压器相关
+- 数据质量
+- 安全操作
+- 线路参数
+- 拓扑节点
+
+这些规则可以用于数据验证、知识推理、一致性检查和数据质量保证。
+
