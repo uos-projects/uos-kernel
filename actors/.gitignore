@@ -4,8 +4,11 @@
 *.dll
 *.so
 *.dylib
-*_test
-*_example
+
+# Go 可执行文件（编译后的二进制文件）
+# 只匹配根目录下的可执行文件，不匹配子目录中的源代码
+/*_test
+/*_example
 
 # Go 测试覆盖率
 *.out
