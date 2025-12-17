@@ -43,7 +43,7 @@ func (s *System) Spawn(id string, behavior ActorBehavior) (Actor, error) {
 	return actor, nil
 }
 
-// Register 注册一个已创建的 Actor（用于 PowerSystemResourceActor 等）
+// Register 注册一个已创建的 Actor（用于 CIMResourceActor 等）
 func (s *System) Register(actor Actor) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -106,16 +106,17 @@ func (s *System) Send(id string, msg Message) error {
 		return fmt.Errorf("actor %s not found", id)
 	}
 
-	// 支持 BaseActor 和 PowerSystemResourceActor
-	if baseActor, ok := actor.(*BaseActor); ok {
-		if !baseActor.Send(msg) {
+	// 优先使用 ResourceActor 接口（包含 Send 方法）
+	if resourceActor, ok := actor.(ResourceActor); ok {
+		if !resourceActor.Send(msg) {
 			return fmt.Errorf("failed to send message to actor %s: mailbox full", id)
 		}
 		return nil
 	}
 
-	if resourceActor, ok := actor.(*PowerSystemResourceActor); ok {
-		if !resourceActor.Send(msg) {
+	// 回退到 BaseActor
+	if baseActor, ok := actor.(*BaseActor); ok {
+		if !baseActor.Send(msg) {
 			return fmt.Errorf("failed to send message to actor %s: mailbox full", id)
 		}
 		return nil
@@ -134,14 +135,15 @@ func (s *System) SendAsync(id string, msg Message) error {
 		return fmt.Errorf("actor %s not found", id)
 	}
 
-	// 支持 BaseActor 和 PowerSystemResourceActor
-	if baseActor, ok := actor.(*BaseActor); ok {
-		baseActor.SendAsync(msg)
+	// 优先使用 BaseResourceActor（包含 SendAsync 方法）
+	if resourceActor, ok := actor.(*BaseResourceActor); ok {
+		resourceActor.SendAsync(msg)
 		return nil
 	}
 
-	if resourceActor, ok := actor.(*PowerSystemResourceActor); ok {
-		resourceActor.SendAsync(msg)
+	// 回退到 BaseActor
+	if baseActor, ok := actor.(*BaseActor); ok {
+		baseActor.SendAsync(msg)
 		return nil
 	}
 

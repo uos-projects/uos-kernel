@@ -15,8 +15,8 @@ func ExampleResourceManager() {
 	system := actors.NewSystem(ctx)
 	defer system.Shutdown()
 
-	// 创建资源 Actor
-	actor := actors.NewPowerSystemResourceActor("BE-G4", "SynchronousMachine", nil)
+	// 创建 CIMResourceActor
+	actor := actors.NewCIMResourceActor("BE-G4", "http://www.iec.ch/TC57/CIM#SynchronousMachine", nil)
 
 	// 添加 Capabilities
 	factory := actors.NewCapacityFactory()
@@ -99,8 +99,8 @@ func ExampleResourceManager_Exclusive() {
 	system := actors.NewSystem(ctx)
 	defer system.Shutdown()
 
-	// 创建资源 Actor
-	actor := actors.NewPowerSystemResourceActor("EXCLUSIVE-RESOURCE", "SynchronousMachine", nil)
+	// 创建 CIMResourceActor
+	actor := actors.NewCIMResourceActor("EXCLUSIVE-RESOURCE", "http://www.iec.ch/TC57/CIM#SynchronousMachine", nil)
 	system.Register(actor)
 
 	// 创建资源管理器
@@ -128,4 +128,3 @@ func ExampleResourceManager_Exclusive() {
 	// First exclusive descriptor: 0
 	// Failed to open exclusive resource again: resource EXCLUSIVE-RESOURCE is exclusive and already opened
 }
-

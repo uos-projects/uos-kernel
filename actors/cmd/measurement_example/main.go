@@ -23,10 +23,10 @@ func main() {
 	system := actors.NewSystem(ctx)
 	defer system.Shutdown()
 
-	// 创建 PowerSystemResourceActor（代表一个发电机）
-	generator := actors.NewPowerSystemResourceActor(
+	// 创建 CIMResourceActor（代表一个发电机）
+	generator := actors.NewCIMResourceActor(
 		"GEN_001",
-		"SynchronousMachine",
+		"http://www.iec.ch/TC57/CIM#SynchronousMachine",
 		nil,
 	)
 
@@ -102,4 +102,3 @@ func main() {
 
 	fmt.Println("示例完成")
 }
-

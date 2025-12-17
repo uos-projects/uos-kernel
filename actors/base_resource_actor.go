@@ -1,0 +1,153 @@
+package actors
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/uos-projects/uos-kernel/actors/capacities"
+)
+
+// BaseResourceActor 资源 Actor 基类
+// 提供能力管理（Capacity）功能，是所有资源 Actor 的基础
+type BaseResourceActor struct {
+	*BaseActor
+	resourceID   string
+	resourceType string
+	capabilities map[string]capacities.Capacity // 能力名称 -> Capacity 实现
+}
+
+// NewBaseResourceActor 创建一个新的基础资源 Actor
+func NewBaseResourceActor(
+	id string,
+	resourceType string,
+	behavior ActorBehavior,
+) *BaseResourceActor {
+	baseActor := NewBaseActor(id, behavior)
+	return &BaseResourceActor{
+		BaseActor:    baseActor,
+		resourceID:   id,
+		resourceType: resourceType,
+		capabilities: make(map[string]capacities.Capacity),
+	}
+}
+
+// ID 实现 Actor 接口，返回资源 ID
+func (a *BaseResourceActor) ID() string {
+	return a.resourceID
+}
+
+// ResourceID 返回资源 ID
+func (a *BaseResourceActor) ResourceID() string {
+	return a.resourceID
+}
+
+// ResourceType 返回资源类型
+func (a *BaseResourceActor) ResourceType() string {
+	return a.resourceType
+}
+
+// AddCapacity 添加一个能力
+func (a *BaseResourceActor) AddCapacity(capacity capacities.Capacity) {
+	a.capabilities[capacity.Name()] = capacity
+}
+
+// RemoveCapacity 移除一个能力
+func (a *BaseResourceActor) RemoveCapacity(capacityName string) {
+	delete(a.capabilities, capacityName)
+}
+
+// HasCapacity 检查是否具有某种能力
+func (a *BaseResourceActor) HasCapacity(capacityName string) bool {
+	_, exists := a.capabilities[capacityName]
+	return exists
+}
+
+// GetCapacity 获取指定名称的能力
+func (a *BaseResourceActor) GetCapacity(capacityName string) (capacities.Capacity, bool) {
+	cap, exists := a.capabilities[capacityName]
+	return cap, exists
+}
+
+// ListCapabilities 返回所有能力名称列表
+func (a *BaseResourceActor) ListCapabilities() []string {
+	names := make([]string, 0, len(a.capabilities))
+	for name := range a.capabilities {
+		names = append(names, name)
+	}
+	return names
+}
+
+// Receive 重写消息接收逻辑，路由到对应的 Capacity
+func (a *BaseResourceActor) Receive(ctx context.Context, msg Message) error {
+	// 尝试找到能处理此消息的 Capacity
+	var capMsg capacities.Message = msg
+	for _, capacity := range a.capabilities {
+		if capacity.CanHandle(capMsg) {
+			return capacity.Execute(ctx, capMsg)
+		}
+	}
+
+	// 如果没有找到对应的 Capacity，使用默认行为
+	if a.BaseActor.behavior != nil {
+		_, err := a.BaseActor.behavior.Handle(ctx, msg)
+		return err
+	}
+
+	// 如果也没有默认行为，返回错误
+	return fmt.Errorf("no capacity can handle message type %T", msg)
+}
+
+// Start 启动 Actor（扩展基类方法，启动所有需要订阅的 Capacity）
+func (a *BaseResourceActor) Start(ctx context.Context) error {
+	// 先调用基类的 Start
+	if err := a.BaseActor.Start(ctx); err != nil {
+		return err
+	}
+
+	// 启动所有需要订阅的 Capacity
+	for _, capacity := range a.capabilities {
+		// 检查是否有 StartSubscription 方法（可选接口）
+		if starter, ok := capacity.(interface {
+			StartSubscription(context.Context) error
+		}); ok {
+			// 设置 Capacity 引用和 context
+			if capacitySetter, ok := capacity.(interface {
+				SetCapacityRef(capacities.Capacity, context.Context)
+			}); ok {
+				capacitySetter.SetCapacityRef(capacity, ctx)
+			}
+
+			// 设置 Actor 引用
+			if setter, ok := capacity.(interface {
+				SetActorRef(interface {
+					Send(Message) bool
+				})
+			}); ok {
+				setter.SetActorRef(a)
+			}
+
+			// 启动订阅
+			if err := starter.StartSubscription(ctx); err != nil {
+				return fmt.Errorf("failed to start subscription for capacity %s: %w",
+					capacity.Name(), err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// GetRef 获取指定 Actor 的 ActorRef
+func (a *BaseResourceActor) GetRef(targetID string) (*ActorRef, error) {
+	return a.BaseActor.GetRef(targetID)
+}
+
+// SendTo 向指定 ID 的 Actor 发送消息
+func (a *BaseResourceActor) SendTo(targetID string, msg Message) error {
+	return a.BaseActor.SendTo(targetID, msg)
+}
+
+// Tell 是 SendTo 的别名
+func (a *BaseResourceActor) Tell(targetID string, msg Message) error {
+	return a.BaseActor.Tell(targetID, msg)
+}

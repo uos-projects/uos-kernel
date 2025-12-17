@@ -21,9 +21,9 @@ const (
 // 每个resourceID对应一个Resource，管理资源的引用计数和排他性
 type Resource struct {
 	resourceID string
-	actor      *actors.PowerSystemResourceActor
-	refCount   int32 // 引用计数（有多少个描述符打开了这个资源）
-	exclusive  bool  // 是否排他性资源（true表示只能被一个描述符打开）
+	actor      actors.ResourceActor // 使用接口，支持 BaseResourceActor 和 CIMResourceActor
+	refCount   int32                // 引用计数（有多少个描述符打开了这个资源）
+	exclusive  bool                 // 是否排他性资源（true表示只能被一个描述符打开）
 	mu         sync.RWMutex
 }
 
@@ -71,9 +71,10 @@ func (rm *ResourceManager) OpenWithExclusive(resourceID string, exclusive bool) 
 		return InvalidDescriptor, fmt.Errorf("resource %s not found", resourceID)
 	}
 
-	resourceActor, ok := actor.(*actors.PowerSystemResourceActor)
+	// 尝试转换为 ResourceActor 接口
+	resourceActor, ok := actor.(actors.ResourceActor)
 	if !ok {
-		return InvalidDescriptor, fmt.Errorf("resource %s is not a PowerSystemResourceActor", resourceID)
+		return InvalidDescriptor, fmt.Errorf("resource %s is not a ResourceActor", resourceID)
 	}
 
 	// 获取或创建Resource

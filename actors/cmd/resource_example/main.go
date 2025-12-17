@@ -15,11 +15,11 @@ func main() {
 	system := actors.NewSystem(ctx)
 	defer system.Shutdown()
 
-	// 创建资源 Actor（对应 PowerSystemResource）
+	// 创建 CIMResourceActor（对应 CIM 资源）
 	// 示例1: BE-Line_2 (ACLineSegment) 具有 AccumulatorResetCapacity
-	lineActor := actors.NewPowerSystemResourceActor(
+	lineActor := actors.NewCIMResourceActor(
 		"BE-Line_2",
-		"ACLineSegment",
+		"http://www.iec.ch/TC57/CIM#ACLineSegment",
 		nil,
 	)
 
@@ -39,9 +39,9 @@ func main() {
 	}
 
 	// 示例2: BE-G4 (SynchronousMachine) 具有 RaiseLowerCommandCapacity
-	genActor := actors.NewPowerSystemResourceActor(
+	genActor := actors.NewCIMResourceActor(
 		"BE-G4",
-		"SynchronousMachine",
+		"http://www.iec.ch/TC57/CIM#SynchronousMachine",
 		nil,
 	)
 
@@ -56,9 +56,9 @@ func main() {
 	}
 
 	// 示例3: CIRCB-1230991526 (Breaker) 具有 CommandCapacity
-	breakerActor := actors.NewPowerSystemResourceActor(
+	breakerActor := actors.NewCIMResourceActor(
 		"CIRCB-1230991526",
-		"Breaker",
+		"http://www.iec.ch/TC57/CIM#Breaker",
 		nil,
 	)
 

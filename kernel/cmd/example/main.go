@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/uos-projects/uos-kernel/actors"
+	"github.com/uos-projects/uos-kernel/actors/capacities"
 	"github.com/uos-projects/uos-kernel/resource"
 )
 
@@ -16,15 +17,33 @@ func main() {
 	system := actors.NewSystem(ctx)
 	defer system.Shutdown()
 
-	// 2. 创建资源Actor
-	actor := actors.NewPowerSystemResourceActor("BREAKER_001", "Breaker", nil)
-	system.Register(actor)
+	// 2. 创建 CIMResourceActor（带属性和 OWL 引用）
+	breakerURI := "http://www.iec.ch/TC57/CIM#Breaker"
+	actor := actors.NewCIMResourceActor("BREAKER_001", breakerURI, nil)
+
+	// 设置 Breaker 的属性（包括继承的属性）
+	actor.SetProperty("mRID", "BREAKER_001")
+	actor.SetProperty("name", "Main Breaker")
+	actor.SetProperty("description", "Main circuit breaker for substation A")
+	actor.SetProperty("normalOpen", false)
+	actor.SetProperty("open", false)
+	actor.SetProperty("locked", false)
+	actor.SetProperty("ratedCurrent", 1000.0)
+
+	// 添加 Command Capacity
+	commandCapacity := capacities.NewCommandCapacity("breaker-command")
+	actor.AddCapacity(commandCapacity)
+
+	// 注册到 System
+	if err := system.Register(actor); err != nil {
+		log.Fatalf("Failed to register actor: %v", err)
+	}
 
 	// 3. 创建资源内核
 	k := resource.NewResourceKernel(system)
 
 	// 4. 加载类型系统定义
-	if err := k.LoadTypeSystem("../../kernel/typesystem.yaml"); err != nil {
+	if err := k.LoadTypeSystem("../../typesystem.yaml"); err != nil {
 		log.Fatalf("Failed to load type system: %v", err)
 	}
 
@@ -66,26 +85,13 @@ func main() {
 	fmt.Printf("\nResource State:\n")
 	fmt.Printf("  ResourceID: %s\n", state.ResourceID)
 	fmt.Printf("  ResourceType: %s\n", state.ResourceType)
+	fmt.Printf("  OWLClassURI: %s\n", state.OWLClassURI)
 	fmt.Printf("  Capabilities: %v\n", state.Capabilities)
 
-	// 8. 执行控制操作（Ioctl）
-	fmt.Printf("\nExecuting control operations...\n")
-
-	// 示例：SetPoint操作
-	setPointArg := map[string]interface{}{"value": 150.0}
-	result, err := k.Ioctl(ctx, fd, 0x1004, setPointArg) // CMD_SET_POINT
-	if err != nil {
-		log.Printf("Failed to execute SetPoint: %v", err)
-	} else {
-		fmt.Printf("SetPoint result: %v\n", result)
-	}
-
-	// 示例：查询资源信息
-	info, err := k.Ioctl(ctx, fd, 0x1000, nil) // CMD_GET_RESOURCE_INFO
-	if err != nil {
-		log.Printf("Failed to get resource info: %v", err)
-	} else {
-		fmt.Printf("Resource info: %v\n", info)
+	// 显示属性
+	fmt.Printf("\nProperties:\n")
+	for k, v := range state.Properties {
+		fmt.Printf("  %s: %v\n", k, v)
 	}
 
 	fmt.Println("\nExample completed successfully!")

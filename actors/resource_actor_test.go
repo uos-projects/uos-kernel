@@ -8,9 +8,9 @@ import (
 	"github.com/uos-projects/uos-kernel/actors/capacities"
 )
 
-func TestPowerSystemResourceActor(t *testing.T) {
+func TestBaseResourceActor(t *testing.T) {
 	ctx := context.Background()
-	actor := NewPowerSystemResourceActor("BE-Line_2", "ACLineSegment", nil)
+	actor := NewBaseResourceActor("BE-Line_2", "ACLineSegment", nil)
 
 	if actor.ResourceID() != "BE-Line_2" {
 		t.Errorf("Expected ResourceID 'BE-Line_2', got '%s'", actor.ResourceID())
@@ -66,9 +66,9 @@ func TestPowerSystemResourceActor(t *testing.T) {
 	}
 }
 
-func TestPowerSystemResourceActorReceive(t *testing.T) {
+func TestBaseResourceActorReceive(t *testing.T) {
 	ctx := context.Background()
-	actor := NewPowerSystemResourceActor("BE-G4", "SynchronousMachine", nil)
+	actor := NewBaseResourceActor("BE-G4", "SynchronousMachine", nil)
 
 	// 添加能力
 	capacity := capacities.NewRaiseLowerCommandCapacity("CMD_RL_1")

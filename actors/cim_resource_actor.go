@@ -10,7 +10,7 @@ import (
 // 不体现 OWL 的层次关系，只维护 OWL 类的 URI reference
 // 所有属性通过 map[string]interface{} 存储，与 OWL 定义一致（包括继承的属性）
 type CIMResourceActor struct {
-	*PowerSystemResourceActor
+	*BaseResourceActor // 嵌入基础资源 Actor（能力管理）
 
 	// OWL 类的完整 URI（用于语义解释）
 	OWLClassURI string
@@ -37,18 +37,18 @@ func NewCIMResourceActor(
 	localName := extractLocalName(owlClassURI)
 
 	// 创建基础资源 Actor
-	resourceActor := NewPowerSystemResourceActor(id, localName, behavior)
+	baseResourceActor := NewBaseResourceActor(id, localName, behavior)
 
 	// 初始化状态后端
 	stateBackend := state.NewMemoryStateBackend()
 	runtimeContext := NewRuntimeContext(stateBackend)
 
 	actor := &CIMResourceActor{
-		PowerSystemResourceActor: resourceActor,
-		OWLClassURI:              owlClassURI,
-		stateBackend:             stateBackend,
-		runtimeContext:           runtimeContext,
-		properties:               make(map[string]interface{}),
+		BaseResourceActor: baseResourceActor,
+		OWLClassURI:       owlClassURI,
+		stateBackend:      stateBackend,
+		runtimeContext:    runtimeContext,
+		properties:        make(map[string]interface{}),
 	}
 
 	return actor

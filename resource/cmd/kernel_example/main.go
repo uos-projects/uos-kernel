@@ -16,8 +16,12 @@ func main() {
 	system := actors.NewSystem(ctx)
 	defer system.Shutdown()
 
-	// 2. 创建资源Actor
-	actor := actors.NewPowerSystemResourceActor("BREAKER_001", "Breaker", nil)
+	// 2. 创建 CIMResourceActor（带属性和 OWL 引用）
+	breakerURI := "http://www.iec.ch/TC57/CIM#Breaker"
+	actor := actors.NewCIMResourceActor("BREAKER_001", breakerURI, nil)
+	actor.SetProperty("mRID", "BREAKER_001")
+	actor.SetProperty("name", "Main Breaker")
+	actor.SetProperty("normalOpen", false)
 	system.Register(actor)
 
 	// 3. 创建资源内核
@@ -90,4 +94,3 @@ func main() {
 
 	fmt.Println("\nExample completed successfully!")
 }
-
