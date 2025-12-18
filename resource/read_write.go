@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/uos-projects/uos-kernel/actors"
 )
@@ -66,14 +67,20 @@ func (rm *ResourceManager) Write(ctx context.Context, fd ResourceDescriptor, req
 	actor := resource.actor
 	resource.mu.RUnlock()
 
-	// 这里可以更新 Actor 的状态
-	// 例如：更新资源属性、配置等
-	// 具体实现取决于 Actor 支持哪些状态更新操作
+	// 检查是否支持属性更新
+	holder, ok := actor.(actors.PropertyHolder)
+	if !ok {
+		// 如果 Actor 不支持属性更新，这里怎么处理？
+		// 可以返回错误，表示该资源不支持写入属性
+		return fmt.Errorf("resource %s does not support property updates", actor.ResourceID())
+	}
 
-	// TODO: 实现状态更新逻辑
-	// 可能需要通过消息发送给 Actor，或者直接更新 Actor 的属性
-	_ = actor
-	_ = req
+	// 更新属性
+	if req.Updates != nil {
+		for key, value := range req.Updates {
+			holder.SetProperty(key, value)
+		}
+	}
 
 	return nil
 }

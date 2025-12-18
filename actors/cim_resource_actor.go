@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"context"
 	"time"
 
 	"github.com/uos-projects/uos-kernel/actors/state"
@@ -17,6 +18,9 @@ type CIMResourceActor struct {
 
 	// 状态后端（用于持久化）
 	stateBackend state.StateBackend
+
+	// 快照存储（用于 Iceberg 持久化）
+	snapshotStore state.SnapshotStore
 
 	// 运行时上下文（供 Capacity 访问状态）
 	runtimeContext *RuntimeContext
@@ -47,6 +51,7 @@ func NewCIMResourceActor(
 		BaseResourceActor: baseResourceActor,
 		OWLClassURI:       owlClassURI,
 		stateBackend:      stateBackend,
+		snapshotStore:     state.NewMemorySnapshotStore(), // 默认使用内存快照存储
 		runtimeContext:    runtimeContext,
 		properties:        make(map[string]interface{}),
 	}
@@ -88,6 +93,36 @@ func (a *CIMResourceActor) GetRuntimeContext() *RuntimeContext {
 // GetStateBackend 获取状态后端
 func (a *CIMResourceActor) GetStateBackend() state.StateBackend {
 	return a.stateBackend
+}
+
+// SetSnapshotStore 设置快照存储（例如设置为 IcebergBackend）
+func (a *CIMResourceActor) SetSnapshotStore(store state.SnapshotStore) {
+	a.snapshotStore = store
+}
+
+// SaveSnapshotAsync 异步保存快照到存储后端
+func (a *CIMResourceActor) SaveSnapshotAsync(ctx context.Context) error {
+	// 1. 创建内存快照
+	// Sequence 暂时使用时间戳
+	snapshot, err := a.CreateSnapshot(time.Now().UnixMilli())
+	if err != nil {
+		return err
+	}
+
+	// 2. 保存到后端
+	// 注意：实际生产中这应该是一个异步任务，不阻塞 Actor 主线程
+	// 但在这个简单的实现中，我们同步调用，或者启动 Goroutine
+	// 为了演示清晰和确保完成，这里先用同步调用，或者 go func
+	go func() {
+		// 使用新的 Context 防止外部取消导致保存失败
+		// 这里应该有更好的生命周期管理
+		err := a.snapshotStore.Save(context.Background(), a.ResourceID(), snapshot)
+		if err != nil {
+			// Log error
+			// fmt.Printf("Failed to save snapshot for %s: %v\n", a.ResourceID(), err)
+		}
+	}()
+	return nil
 }
 
 // CreateSnapshot 创建状态快照

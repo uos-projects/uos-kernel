@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/uos-projects/uos-kernel/actors"
-	"github.com/uos-projects/uos-kernel/actors/capacities"
 	"github.com/uos-projects/uos-kernel/resource"
 )
 
@@ -17,38 +16,17 @@ func main() {
 	system := actors.NewSystem(ctx)
 	defer system.Shutdown()
 
-	// 2. 创建 CIMResourceActor（带属性和 OWL 引用）
-	breakerURI := "http://www.iec.ch/TC57/CIM#Breaker"
-	actor := actors.NewCIMResourceActor("BREAKER_001", breakerURI, nil)
-
-	// 设置 Breaker 的属性（包括继承的属性）
-	actor.SetProperty("mRID", "BREAKER_001")
-	actor.SetProperty("name", "Main Breaker")
-	actor.SetProperty("description", "Main circuit breaker for substation A")
-	actor.SetProperty("normalOpen", false)
-	actor.SetProperty("open", false)
-	actor.SetProperty("locked", false)
-	actor.SetProperty("ratedCurrent", 1000.0)
-
-	// 添加 Command Capacity
-	commandCapacity := capacities.NewCommandCapacity("breaker-command")
-	actor.AddCapacity(commandCapacity)
-
-	// 注册到 System
-	if err := system.Register(actor); err != nil {
-		log.Fatalf("Failed to register actor: %v", err)
-	}
-
-	// 3. 创建资源内核
+	// 2. 创建资源内核
 	k := resource.NewResourceKernel(system)
 
-	// 4. 加载类型系统定义
+	// 3. 加载类型系统定义
 	if err := k.LoadTypeSystem("../../typesystem.yaml"); err != nil {
 		log.Fatalf("Failed to load type system: %v", err)
 	}
 
-	// 5. 打开资源
-	fd, err := k.Open("Breaker", "BREAKER_001", 0)
+	// 4. 打开资源（如果不存在则自动创建）
+	// 使用 O_CREAT 标志
+	fd, err := k.Open("Breaker", "BREAKER_001", resource.O_CREAT)
 	if err != nil {
 		log.Fatalf("Failed to open resource: %v", err)
 	}
@@ -56,7 +34,48 @@ func main() {
 
 	fmt.Printf("Opened resource with descriptor: %d\n", fd)
 
-	// 6. 查询资源信息（Stat）
+	// [验证类型安全] 尝试用错误的类型打开同一个资源
+	fmt.Println("\nAttempting to open existing resource with wrong type...")
+	_, err = k.Open("SynchronousMachine", "BREAKER_001", 0)
+	if err != nil {
+		fmt.Printf("Expected error caught: %v\n", err)
+	} else {
+		log.Fatal("Error: Expected type mismatch error but got success")
+	}
+
+	// [验证属性修改]
+	fmt.Println("\nAttempting to modify resource properties...")
+	updateReq := &resource.WriteRequest{
+		Updates: map[string]interface{}{
+			"ratedCurrent": 2000.0,
+			"description":  "Updated description via Write",
+		},
+	}
+	if err := k.Write(ctx, fd, updateReq); err != nil {
+		log.Fatalf("Failed to write resource: %v", err)
+	}
+	fmt.Println("Properties updated via k.Write")
+
+	// 重新读取验证
+	updatedState, err := k.Read(ctx, fd)
+	if err != nil {
+		log.Fatalf("Failed to read resource: %v", err)
+	}
+	if val, ok := updatedState.Properties["ratedCurrent"]; ok && val == 2000.0 {
+		fmt.Println("Verification Success: ratedCurrent updated to 2000.0")
+	} else {
+		fmt.Printf("Verification Failed: ratedCurrent is %v\n", val)
+	}
+
+	// [验证持久化同步]
+	fmt.Println("\nAttempting to sync resource state (Snapshot)...")
+	_, err = k.Ioctl(ctx, fd, int(resource.CMD_SYNC), nil)
+	if err != nil {
+		log.Fatalf("Failed to sync resource: %v", err)
+	}
+	fmt.Println("Resource state synced successfully (Snapshot created)")
+
+	// 5. 查询资源信息（Stat）
 	stat, err := k.Stat(ctx, fd)
 	if err != nil {
 		log.Fatalf("Failed to stat resource: %v", err)

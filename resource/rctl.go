@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/uos-projects/uos-kernel/actors"
 	"github.com/uos-projects/uos-kernel/actors/capacities"
 )
 
@@ -11,15 +12,20 @@ import (
 type ControlCommand int32
 
 const (
-	// 通用命令
+	// General Commands
 	CMD_GET_RESOURCE_INFO ControlCommand = iota + 0x1000
-	CMD_LIST_CAPABILITIES
+	CMD_LIST_CAPABILITIES // 0x1001
 
-	// Control 命令
-	CMD_ACCUMULATOR_RESET
-	CMD_COMMAND
-	CMD_RAISE_LOWER
-	CMD_SET_POINT
+	// Control Commands (Mapped to Capacities)
+	CMD_ACCUMULATOR_RESET // 0x1002
+	CMD_COMMAND           // 0x1003
+	CMD_RAISE_LOWER       // 0x1004
+	CMD_SET_POINT         // 0x1005
+)
+
+// System Commands
+const (
+	CMD_SYNC ControlCommand = 0x2001 // 强制持久化同步
 )
 
 // ControlArg 控制参数（类似 ioctl 的参数）
@@ -71,6 +77,18 @@ func (rm *ResourceManager) RCtl(ctx context.Context, fd ResourceDescriptor, cmd 
 
 	case CMD_LIST_CAPABILITIES:
 		return actor.ListCapabilities(), nil
+
+	case CMD_SYNC:
+		// 强制同步状态到持久化层
+		// 这里虽然使用了具体的类型断言，但作为内核层，了解 CIMResourceActor 是可以接受的
+		// 或者可以定义一个 Snapshotable 接口
+		if cimActor, ok := actor.(*actors.CIMResourceActor); ok {
+			if err := cimActor.SaveSnapshotAsync(ctx); err != nil {
+				return nil, fmt.Errorf("failed to sync snapshot: %w", err)
+			}
+			return nil, nil // API 返回成功，异步保存
+		}
+		return nil, fmt.Errorf("resource does not support sync")
 
 	default:
 		return nil, fmt.Errorf("unknown control command: %d", cmd)

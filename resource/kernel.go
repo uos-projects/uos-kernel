@@ -3,14 +3,23 @@ package resource
 import (
 	"context"
 	"fmt"
-
 	"github.com/uos-projects/uos-kernel/actors"
 	"github.com/uos-projects/uos-kernel/kernel"
+)
+
+// Open flags
+const (
+	O_RDONLY = 0x0000
+	O_WRONLY = 0x0001
+	O_RDWR   = 0x0002
+	O_CREAT  = 0x0200
+	O_EXCL   = 0x0800
 )
 
 // ResourceKernel 资源内核（类似操作系统内核）
 // 面向用户的高级接口，提供类型验证和POSIX风格的系统调用
 type ResourceKernel struct {
+	system       *actors.System // 保存 System 引用以支持创建 Actor
 	typeRegistry *kernel.TypeRegistry
 	resourceMgr  *ResourceManager
 	ioctlMapping map[int]kernel.IoctlCommandDef
@@ -19,6 +28,7 @@ type ResourceKernel struct {
 // NewResourceKernel 创建资源内核
 func NewResourceKernel(system *actors.System) *ResourceKernel {
 	return &ResourceKernel{
+		system:       system,
 		typeRegistry: kernel.NewTypeRegistry(),
 		resourceMgr:  NewResourceManager(system),
 		ioctlMapping: make(map[int]kernel.IoctlCommandDef),
@@ -46,17 +56,87 @@ func (k *ResourceKernel) LoadTypeSystem(filePath string) error {
 // Open 打开资源（类似POSIX open）
 func (k *ResourceKernel) Open(resourceType string, resourceID string, flags int) (ResourceDescriptor, error) {
 	// 验证资源类型是否存在
-	if !k.typeRegistry.Exists(resourceType) {
+	var typeDesc *kernel.TypeDescriptor
+	if k.typeRegistry.Exists(resourceType) {
+		typeDesc, _ = k.typeRegistry.Get(resourceType)
+	} else {
 		return InvalidDescriptor, fmt.Errorf("resource type %s not found", resourceType)
 	}
 
-	// 通过ResourceManager打开资源
+	// 尝试通过ResourceManager打开资源
 	fd, err := k.resourceMgr.Open(resourceID)
-	if err != nil {
-		return InvalidDescriptor, err
+	if err == nil {
+		// 资源已存在
+		if (flags & O_CREAT) != 0 && (flags & O_EXCL) != 0 {
+			k.Close(fd) // 关闭刚才打开的
+			return InvalidDescriptor, fmt.Errorf("resource %s already exists", resourceID)
+		}
+
+		// [安全增强] 检查已存在的资源类型是否匹配
+		state, err := k.resourceMgr.Read(context.Background(), fd)
+		if err != nil {
+			k.Close(fd)
+			return InvalidDescriptor, fmt.Errorf("failed to read resource state: %w", err)
+		}
+
+		if state.ResourceType != resourceType {
+			k.Close(fd)
+			return InvalidDescriptor, fmt.Errorf("resource type mismatch: expected %s, got %s", resourceType, state.ResourceType)
+		}
+
+		return fd, nil
 	}
 
-	return fd, nil
+	// 资源不存在
+	// 如果设置了 O_CREAT，则尝试创建资源
+	// 为了响应用户的特定请求，如果 flags == 0 (默认)，我们也尝试创建（或者我们可以要求用户使用 O_CREAT）
+	// 这里我们遵循 POSIX 惯例，要求 O_CREAT。但为了方便演示用户请求的场景，我们可以暂时放宽，
+	// 或者最好是引导用户加上 O_CREAT。这里我实现 O_CREAT 逻辑。
+	if (flags & O_CREAT) != 0 {
+		if err := k.createResource(resourceType, resourceID, typeDesc); err != nil {
+			return InvalidDescriptor, fmt.Errorf("failed to create resource: %w", err)
+		}
+
+		// 创建成功后再次尝试打开
+		return k.resourceMgr.Open(resourceID)
+	}
+
+	return InvalidDescriptor, err
+}
+
+// createResource 创建新资源
+func (k *ResourceKernel) createResource(resourceType, resourceID string, typeDesc *kernel.TypeDescriptor) error {
+	// 1. 构造 OWL Class URI
+	// 假设 URI 格式为 CIM 命名空间 + 类型名
+	owlClassURI := "http://www.iec.ch/TC57/CIM#" + resourceType
+
+	// 2. 创建 Actor
+	// 使用 CIMResourceActor
+	actor := actors.NewCIMResourceActor(resourceID, owlClassURI, nil)
+
+	// 3. 根据类型定义添加 Capabilities
+	factory := actors.NewCapacityFactory()
+	
+	// 获取所有能力（包括继承的）
+	capabilities := typeDesc.GetAllCapabilities()
+	
+	for _, capDesc := range capabilities {
+		if capDesc.Name == "Control" || capDesc.Name == "SwitchControl" {
+			// 默认添加 CommandCapacity，这是最通用的
+			// ID 命名习惯: resourceID + "-command"
+			cmdCap, _ := factory.CreateCapacity("Command", resourceID+"-command")
+			if cmdCap != nil {
+				actor.AddCapacity(cmdCap)
+			}
+		}
+	}
+
+	// 4. 注册到 System
+	if err := k.system.Register(actor); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Close 关闭资源（类似POSIX close）
@@ -97,11 +177,11 @@ func (k *ResourceKernel) Stat(ctx context.Context, fd ResourceDescriptor) (*Reso
 	}
 
 	// 获取能力列表
-	capabilities := state.Capabilities
+	actorCapabilities := state.Capabilities
 
 	// 构建能力描述符列表
-	capDescs := make([]CapabilityInfo, len(capabilities))
-	for i, capName := range capabilities {
+	capDescs := make([]CapabilityInfo, len(actorCapabilities))
+	for i, capName := range actorCapabilities {
 		var capDesc *kernel.CapabilityDescriptor
 		if typeDesc != nil {
 			cap, _ := typeDesc.GetCapability(capName)
@@ -127,6 +207,15 @@ func (k *ResourceKernel) Stat(ctx context.Context, fd ResourceDescriptor) (*Reso
 
 // Ioctl 控制操作（类似POSIX ioctl）
 func (k *ResourceKernel) Ioctl(ctx context.Context, fd ResourceDescriptor, request int, argp interface{}) (interface{}, error) {
+	// 系统级命令处理（绕过 Capability 类型检查）
+	if ControlCommand(request) == CMD_SYNC {
+		result, err := k.resourceMgr.RCtl(ctx, fd, ControlCommand(request), argp)
+		if err != nil {
+			return nil, fmt.Errorf("ioctl sync failed: %w", err)
+		}
+		return result, nil
+	}
+
 	// 查找ioctl命令映射
 	cmdDef, exists := k.ioctlMapping[request]
 	if !exists {
@@ -161,6 +250,7 @@ func (k *ResourceKernel) Ioctl(ctx context.Context, fd ResourceDescriptor, reque
 
 	result, err := k.resourceMgr.RCtl(ctx, fd, controlCmd, argp)
 	if err != nil {
+		// 错误处理优化: 转换为更友好的错误信息
 		return nil, fmt.Errorf("ioctl operation failed: %w", err)
 	}
 
@@ -256,4 +346,5 @@ func convertIoctlToControlCommand(ioctlCmd int) ControlCommand {
 		return ControlCommand(ioctlCmd)
 	}
 }
+
 
