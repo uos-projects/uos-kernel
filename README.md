@@ -131,8 +131,8 @@ uos-kernel/
 │   └── development_summary_20251216.md
 │
 └── infra/                     # 基础设施配置
-    ├── docker-compose.yml
-    └── USAGE.txt
+    ├── docker-compose.yml     # Docker Compose 配置（MinIO, Nessie, Spark Thrift Server）
+    └── beeline.sh             # beeline 客户端包装脚本
 ```
 
 ## 核心组件

@@ -109,14 +109,24 @@ func (a *CIMResourceActor) SaveSnapshotAsync(ctx context.Context) error {
 		return err
 	}
 
-	// 2. 保存到后端
+	// 2. 将 Snapshot 转换为 map（避免循环导入）
+	snapshotMap := map[string]interface{}{
+		"ActorID":     snapshot.ActorID,
+		"OWLClassURI": snapshot.OWLClassURI,
+		"Sequence":    snapshot.Sequence,
+		"Timestamp":   snapshot.Timestamp,
+		"Properties":  snapshot.Properties,
+		"State":       snapshot.State,
+	}
+
+	// 3. 保存到后端
 	// 注意：实际生产中这应该是一个异步任务，不阻塞 Actor 主线程
 	// 但在这个简单的实现中，我们同步调用，或者启动 Goroutine
 	// 为了演示清晰和确保完成，这里先用同步调用，或者 go func
 	go func() {
 		// 使用新的 Context 防止外部取消导致保存失败
 		// 这里应该有更好的生命周期管理
-		err := a.snapshotStore.Save(context.Background(), a.ResourceID(), snapshot)
+		err := a.snapshotStore.Save(context.Background(), a.ResourceID(), snapshotMap)
 		if err != nil {
 			// Log error
 			// fmt.Printf("Failed to save snapshot for %s: %v\n", a.ResourceID(), err)

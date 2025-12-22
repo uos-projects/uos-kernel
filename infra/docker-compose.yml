@@ -1,5 +1,7 @@
 services:
   minio:
+    # 注意：MinIO 自 2025-10 起不再提供官方 Docker 镜像，改为仅源码分发
+    # 使用最后一个可用的官方镜像版本
     image: quay.io/minio/minio:RELEASE.2024-10-02T17-50-41Z
     container_name: iceberg-minio
     command: server --console-address ":9001" /data
@@ -13,7 +15,7 @@ services:
       - minio-data:/data
 
   nessie:
-    image: ghcr.io/projectnessie/nessie:0.93.1
+    image: ghcr.io/projectnessie/nessie:0.106.0
     container_name: iceberg-nessie
     environment:
       QUARKUS_HTTP_PORT: 19120
@@ -23,9 +25,11 @@ services:
     depends_on:
       - minio
 
-  spark:
-    image: tabulario/spark-iceberg:latest
-    container_name: iceberg-spark
+  spark-thrift:
+    # 使用具体版本标签而不是 latest，确保版本一致性
+    # Spark 3.5.5 + Iceberg 1.8.1
+    image: tabulario/spark-iceberg:3.5.5_1.8.1
+    container_name: iceberg-spark-thrift
     environment:
       SPARK_HOME: /opt/spark
       AWS_ACCESS_KEY_ID: iceberg
@@ -33,12 +37,32 @@ services:
       AWS_REGION: us-east-1
       AWS_ENDPOINT: http://minio:9000
       ICEBERG_CATALOG: nessie
-    entrypoint:
-      - /opt/spark/bin/spark-submit
-      - --version
+      # Spark Thrift Server 配置
+      SPARK_MASTER: local[*]
+      SPARK_DRIVER_MEMORY: 2g
+      SPARK_EXECUTOR_MEMORY: 2g
+      # 覆盖默认 catalog 配置，避免连接到不存在的 rest:8181
+      SPARK_CONF_DIR: /opt/spark/conf
+      # HiveServer2 HTTP 模式配置
+      HIVE_SERVER2_TRANSPORT_MODE: http
+      HIVE_SERVER2_THRIFT_HTTP_PORT: 10001
+      HIVE_SERVER2_HTTP_ENDPOINT: cliservice
+    # 使用环境变量覆盖配置，避免默认的 demo catalog 连接到不存在的 rest:8181
+    # 注意：tabulario/spark-iceberg 镜像默认启动 Jupyter，需要手动启动 Thrift Server
+    ports:
+      - "10000:10000"  # Thrift Server JDBC 端口（二进制模式）
+      - "10001:10001"  # Thrift Server HTTP 端口
     depends_on:
       - minio
       - nessie
+    # healthcheck:
+    #   # 使用 /proc/net/tcp 检查端口（容器中没有 netstat）
+    #   # 10001 的十六进制是 2729
+    #   test: ["CMD-SHELL", "grep -q ':2729 ' /proc/net/tcp || timeout 1 bash -c '</dev/tcp/localhost/10001' || exit 1"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
+    #   start_period: 30s
 
 volumes:
   minio-data:
