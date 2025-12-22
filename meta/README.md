@@ -51,14 +51,13 @@
 ## 文件结构
 
 ```
-kernel/
+meta/
 ├── typesystem.yaml          # 类型系统DSL定义
 ├── types.go                 # 类型描述符数据结构
 ├── registry.go              # 类型注册表
 ├── loader.go                # YAML加载器
 ├── cim_converter.go         # CIM到类型系统转换器
-├── kernel.go                # 资源内核实现
-├── go.mod                    # Go模块定义
+├── go.mod                   # Go模块定义
 └── cmd/
     └── example/
         └── main.go          # 使用示例
@@ -86,8 +85,8 @@ resource_types:
 ### 2. 加载类型系统
 
 ```go
-k := kernel.NewResourceKernel(system)
-err := k.LoadTypeSystem("typesystem.yaml")
+k := kernel.NewKernel(system)
+err := k.LoadTypeSystem("meta/typesystem.yaml")
 ```
 
 ### 3. 使用POSIX风格接口
@@ -109,7 +108,7 @@ result, err := k.Ioctl(ctx, fd, 0x1004, map[string]interface{}{"value": 150.0})
 
 ## 核心接口
 
-### ResourceKernel
+### Kernel
 
 资源内核，提供POSIX风格的系统调用接口：
 
@@ -146,9 +145,9 @@ result, err := k.Ioctl(ctx, fd, 0x1004, map[string]interface{}{"value": 150.0})
 `CIMToTypeSystemConverter` 可以将CIM模型转换为类型系统：
 
 ```go
-converter := kernel.NewCIMToTypeSystemConverter(registry)
+converter := meta.NewCIMToTypeSystemConverter(registry)
 
-entityInfo := kernel.EntityInfo{
+entityInfo := meta.EntityInfo{
     Name: "Breaker",
     Inherits: "PowerSystemResource",
     Attributes: [...],
@@ -184,7 +183,7 @@ operation_mapping:
 
 类型系统内核基于现有的Actor系统实现：
 
-1. **ResourceManager** - 管理Actor实例的句柄
+1. **Manager** - 管理Actor实例的句柄
 2. **类型验证** - 在执行操作前验证资源类型和能力
 3. **操作路由** - 将ioctl命令路由到对应的Capacity
 
