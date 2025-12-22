@@ -1,4 +1,4 @@
-package resource
+package kernel
 
 import (
 	"context"
@@ -39,7 +39,7 @@ type ResourceInfo struct {
 
 // RCtl 资源控制（类似 POSIX ioctl）
 // 构造 Control 消息并发送给 Actor
-func (rm *ResourceManager) RCtl(ctx context.Context, fd ResourceDescriptor, cmd ControlCommand, arg ControlArg) (interface{}, error) {
+func (rm *Manager) RCtl(ctx context.Context, fd ResourceDescriptor, cmd ControlCommand, arg ControlArg) (interface{}, error) {
 	handle, err := rm.GetHandle(fd)
 	if err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ func (rm *ResourceManager) RCtl(ctx context.Context, fd ResourceDescriptor, cmd 
 }
 
 // 辅助函数：构造各种 Control 消息
-func (rm *ResourceManager) buildAccumulatorResetMessage(arg ControlArg) (capacities.Message, error) {
+func (rm *Manager) buildAccumulatorResetMessage(arg ControlArg) (capacities.Message, error) {
 	req, ok := arg.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("invalid argument type for CMD_ACCUMULATOR_RESET")
@@ -126,7 +126,7 @@ func (rm *ResourceManager) buildAccumulatorResetMessage(arg ControlArg) (capacit
 	return &capacities.AccumulatorResetMessage{Value: value}, nil
 }
 
-func (rm *ResourceManager) buildCommandMessage(arg ControlArg) (capacities.Message, error) {
+func (rm *Manager) buildCommandMessage(arg ControlArg) (capacities.Message, error) {
 	req, ok := arg.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("invalid argument type for CMD_COMMAND")
@@ -152,7 +152,7 @@ func (rm *ResourceManager) buildCommandMessage(arg ControlArg) (capacities.Messa
 	}, nil
 }
 
-func (rm *ResourceManager) buildRaiseLowerMessage(arg ControlArg) (capacities.Message, error) {
+func (rm *Manager) buildRaiseLowerMessage(arg ControlArg) (capacities.Message, error) {
 	req, ok := arg.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("invalid argument type for CMD_RAISE_LOWER")
@@ -170,7 +170,7 @@ func (rm *ResourceManager) buildRaiseLowerMessage(arg ControlArg) (capacities.Me
 	return &capacities.RaiseLowerCommandMessage{Delta: delta}, nil
 }
 
-func (rm *ResourceManager) buildSetPointMessage(arg ControlArg) (capacities.Message, error) {
+func (rm *Manager) buildSetPointMessage(arg ControlArg) (capacities.Message, error) {
 	req, ok := arg.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("invalid argument type for CMD_SET_POINT")

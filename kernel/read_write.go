@@ -1,4 +1,4 @@
-package resource
+package kernel
 
 import (
 	"context"
@@ -18,7 +18,7 @@ type ActorState struct {
 
 // Read 读取 Actor 状态
 // 类似 POSIX read()，但这里读取的是 Actor 的状态信息
-func (rm *ResourceManager) Read(ctx context.Context, fd ResourceDescriptor) (*ActorState, error) {
+func (rm *Manager) Read(ctx context.Context, fd ResourceDescriptor) (*ActorState, error) {
 	handle, err := rm.GetHandle(fd)
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ type WriteRequest struct {
 
 // Write 改变 Actor 状态
 // 类似 POSIX write()，但这里改变的是 Actor 的状态
-func (rm *ResourceManager) Write(ctx context.Context, fd ResourceDescriptor, req *WriteRequest) error {
+func (rm *Manager) Write(ctx context.Context, fd ResourceDescriptor, req *WriteRequest) error {
 	handle, err := rm.GetHandle(fd)
 	if err != nil {
 		return err

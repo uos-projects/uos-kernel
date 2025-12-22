@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/uos-projects/uos-kernel/actors"
-	"github.com/uos-projects/uos-kernel/resource"
+	"github.com/uos-projects/uos-kernel/kernel"
 )
 
 func main() {
@@ -17,7 +17,7 @@ func main() {
 	defer system.Shutdown()
 
 	// 2. 创建资源内核
-	k := resource.NewResourceKernel(system)
+	k := kernel.NewKernel(system)
 
 	// 3. 加载类型系统定义
 	if err := k.LoadTypeSystem("../../typesystem.yaml"); err != nil {
@@ -26,7 +26,7 @@ func main() {
 
 	// 4. 打开资源（如果不存在则自动创建）
 	// 使用 O_CREAT 标志
-	fd, err := k.Open("Breaker", "BREAKER_001", resource.O_CREAT)
+	fd, err := k.Open("Breaker", "BREAKER_001", kernel.O_CREAT)
 	if err != nil {
 		log.Fatalf("Failed to open resource: %v", err)
 	}
@@ -45,7 +45,7 @@ func main() {
 
 	// [验证属性修改]
 	fmt.Println("\nAttempting to modify resource properties...")
-	updateReq := &resource.WriteRequest{
+	updateReq := &kernel.WriteRequest{
 		Updates: map[string]interface{}{
 			"ratedCurrent": 2000.0,
 			"description":  "Updated description via Write",
@@ -69,7 +69,7 @@ func main() {
 
 	// [验证持久化同步]
 	fmt.Println("\nAttempting to sync resource state (Snapshot)...")
-	_, err = k.Ioctl(ctx, fd, int(resource.CMD_SYNC), nil)
+	_, err = k.Ioctl(ctx, fd, int(kernel.CMD_SYNC), nil)
 	if err != nil {
 		log.Fatalf("Failed to sync resource: %v", err)
 	}

@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/uos-projects/uos-kernel/actors"
-	"github.com/uos-projects/uos-kernel/resource"
+	"github.com/uos-projects/uos-kernel/kernel"
 )
 
 func main() {
@@ -25,10 +25,10 @@ func main() {
 	system.Register(actor)
 
 	// 3. 创建资源内核
-	k := resource.NewResourceKernel(system)
+	k := kernel.NewKernel(system)
 
 	// 4. 加载类型系统定义
-	if err := k.LoadTypeSystem("../../../kernel/typesystem.yaml"); err != nil {
+	if err := k.LoadTypeSystem("../../../meta/typesystem.yaml"); err != nil {
 		log.Fatalf("Failed to load type system: %v", err)
 	}
 

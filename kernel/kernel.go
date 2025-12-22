@@ -1,10 +1,11 @@
-package resource
+package kernel
 
 import (
 	"context"
 	"fmt"
+
 	"github.com/uos-projects/uos-kernel/actors"
-	"github.com/uos-projects/uos-kernel/kernel"
+	"github.com/uos-projects/uos-kernel/meta"
 )
 
 // Open flags
@@ -16,35 +17,35 @@ const (
 	O_EXCL   = 0x0800
 )
 
-// ResourceKernel 资源内核（类似操作系统内核）
+// Kernel 资源内核（类似操作系统内核）
 // 面向用户的高级接口，提供类型验证和POSIX风格的系统调用
-type ResourceKernel struct {
+type Kernel struct {
 	system       *actors.System // 保存 System 引用以支持创建 Actor
-	typeRegistry *kernel.TypeRegistry
-	resourceMgr  *ResourceManager
-	ioctlMapping map[int]kernel.IoctlCommandDef
+	typeRegistry *meta.TypeRegistry
+	resourceMgr  *Manager
+	ioctlMapping map[int]meta.IoctlCommandDef
 }
 
-// NewResourceKernel 创建资源内核
-func NewResourceKernel(system *actors.System) *ResourceKernel {
-	return &ResourceKernel{
+// NewKernel 创建资源内核
+func NewKernel(system *actors.System) *Kernel {
+	return &Kernel{
 		system:       system,
-		typeRegistry: kernel.NewTypeRegistry(),
-		resourceMgr:  NewResourceManager(system),
-		ioctlMapping: make(map[int]kernel.IoctlCommandDef),
+		typeRegistry: meta.NewTypeRegistry(),
+		resourceMgr:  NewManager(system),
+		ioctlMapping: make(map[int]meta.IoctlCommandDef),
 	}
 }
 
 // LoadTypeSystem 加载类型系统定义
-func (k *ResourceKernel) LoadTypeSystem(filePath string) error {
-	registry, err := kernel.LoadTypeSystem(filePath)
+func (k *Kernel) LoadTypeSystem(filePath string) error {
+	registry, err := meta.LoadTypeSystem(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to load type system: %w", err)
 	}
 	k.typeRegistry = registry
 
 	// 加载ioctl命令映射
-	mapping, err := kernel.GetIoctlCommandMapping(filePath)
+	mapping, err := meta.GetIoctlCommandMapping(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to load ioctl mapping: %w", err)
 	}
@@ -54,20 +55,20 @@ func (k *ResourceKernel) LoadTypeSystem(filePath string) error {
 }
 
 // Open 打开资源（类似POSIX open）
-func (k *ResourceKernel) Open(resourceType string, resourceID string, flags int) (ResourceDescriptor, error) {
+func (k *Kernel) Open(resourceType string, resourceID string, flags int) (ResourceDescriptor, error) {
 	// 验证资源类型是否存在
-	var typeDesc *kernel.TypeDescriptor
+	var typeDesc *meta.TypeDescriptor
 	if k.typeRegistry.Exists(resourceType) {
 		typeDesc, _ = k.typeRegistry.Get(resourceType)
 	} else {
 		return InvalidDescriptor, fmt.Errorf("resource type %s not found", resourceType)
 	}
 
-	// 尝试通过ResourceManager打开资源
+	// 尝试通过Manager打开资源
 	fd, err := k.resourceMgr.Open(resourceID)
 	if err == nil {
 		// 资源已存在
-		if (flags & O_CREAT) != 0 && (flags & O_EXCL) != 0 {
+		if (flags&O_CREAT) != 0 && (flags&O_EXCL) != 0 {
 			k.Close(fd) // 关闭刚才打开的
 			return InvalidDescriptor, fmt.Errorf("resource %s already exists", resourceID)
 		}
@@ -105,7 +106,7 @@ func (k *ResourceKernel) Open(resourceType string, resourceID string, flags int)
 }
 
 // createResource 创建新资源
-func (k *ResourceKernel) createResource(resourceType, resourceID string, typeDesc *kernel.TypeDescriptor) error {
+func (k *Kernel) createResource(resourceType, resourceID string, typeDesc *meta.TypeDescriptor) error {
 	// 1. 构造 OWL Class URI
 	// 假设 URI 格式为 CIM 命名空间 + 类型名
 	owlClassURI := "http://www.iec.ch/TC57/CIM#" + resourceType
@@ -116,10 +117,10 @@ func (k *ResourceKernel) createResource(resourceType, resourceID string, typeDes
 
 	// 3. 根据类型定义添加 Capabilities
 	factory := actors.NewCapacityFactory()
-	
+
 	// 获取所有能力（包括继承的）
 	capabilities := typeDesc.GetAllCapabilities()
-	
+
 	for _, capDesc := range capabilities {
 		if capDesc.Name == "Control" || capDesc.Name == "SwitchControl" {
 			// 默认添加 CommandCapacity，这是最通用的
@@ -140,22 +141,22 @@ func (k *ResourceKernel) createResource(resourceType, resourceID string, typeDes
 }
 
 // Close 关闭资源（类似POSIX close）
-func (k *ResourceKernel) Close(fd ResourceDescriptor) error {
+func (k *Kernel) Close(fd ResourceDescriptor) error {
 	return k.resourceMgr.Close(fd)
 }
 
 // Read 读取资源状态（类似POSIX read）
-func (k *ResourceKernel) Read(ctx context.Context, fd ResourceDescriptor) (*ActorState, error) {
+func (k *Kernel) Read(ctx context.Context, fd ResourceDescriptor) (*ActorState, error) {
 	return k.resourceMgr.Read(ctx, fd)
 }
 
 // Write 写入资源状态（类似POSIX write）
-func (k *ResourceKernel) Write(ctx context.Context, fd ResourceDescriptor, req *WriteRequest) error {
+func (k *Kernel) Write(ctx context.Context, fd ResourceDescriptor, req *WriteRequest) error {
 	return k.resourceMgr.Write(ctx, fd, req)
 }
 
 // Stat 查询资源信息（类似POSIX stat）
-func (k *ResourceKernel) Stat(ctx context.Context, fd ResourceDescriptor) (*ResourceStat, error) {
+func (k *Kernel) Stat(ctx context.Context, fd ResourceDescriptor) (*ResourceStat, error) {
 	// 通过Read获取资源信息
 	state, err := k.resourceMgr.Read(ctx, fd)
 	if err != nil {
@@ -166,7 +167,7 @@ func (k *ResourceKernel) Stat(ctx context.Context, fd ResourceDescriptor) (*Reso
 	resourceType := state.ResourceType
 
 	// 从类型注册表获取类型描述符
-	var typeDesc *kernel.TypeDescriptor
+	var typeDesc *meta.TypeDescriptor
 	if k.typeRegistry.Exists(resourceType) {
 		var err error
 		typeDesc, err = k.typeRegistry.Get(resourceType)
@@ -182,7 +183,7 @@ func (k *ResourceKernel) Stat(ctx context.Context, fd ResourceDescriptor) (*Reso
 	// 构建能力描述符列表
 	capDescs := make([]CapabilityInfo, len(actorCapabilities))
 	for i, capName := range actorCapabilities {
-		var capDesc *kernel.CapabilityDescriptor
+		var capDesc *meta.CapabilityDescriptor
 		if typeDesc != nil {
 			cap, _ := typeDesc.GetCapability(capName)
 			if cap != nil {
@@ -206,7 +207,7 @@ func (k *ResourceKernel) Stat(ctx context.Context, fd ResourceDescriptor) (*Reso
 }
 
 // Ioctl 控制操作（类似POSIX ioctl）
-func (k *ResourceKernel) Ioctl(ctx context.Context, fd ResourceDescriptor, request int, argp interface{}) (interface{}, error) {
+func (k *Kernel) Ioctl(ctx context.Context, fd ResourceDescriptor, request int, argp interface{}) (interface{}, error) {
 	// 系统级命令处理（绕过 Capability 类型检查）
 	if ControlCommand(request) == CMD_SYNC {
 		result, err := k.resourceMgr.RCtl(ctx, fd, ControlCommand(request), argp)
@@ -232,7 +233,7 @@ func (k *ResourceKernel) Ioctl(ctx context.Context, fd ResourceDescriptor, reque
 	resourceType := state.ResourceType
 
 	// 从类型注册表获取类型描述符
-	var typeDesc *kernel.TypeDescriptor
+	var typeDesc *meta.TypeDescriptor
 	if k.typeRegistry.Exists(resourceType) {
 		typeDesc, _ = k.typeRegistry.Get(resourceType)
 	}
@@ -244,7 +245,7 @@ func (k *ResourceKernel) Ioctl(ctx context.Context, fd ResourceDescriptor, reque
 		}
 	}
 
-	// 通过ResourceManager的RCtl执行操作
+	// 通过Manager的RCtl执行操作
 	// 需要将ioctl命令转换为ControlCommand
 	controlCmd := convertIoctlToControlCommand(request)
 
@@ -258,20 +259,20 @@ func (k *ResourceKernel) Ioctl(ctx context.Context, fd ResourceDescriptor, reque
 }
 
 // Find 查找资源（类似POSIX find）
-func (k *ResourceKernel) Find(resourceType string, filter Filter) ([]ResourceDescriptor, error) {
+func (k *Kernel) Find(resourceType string, filter Filter) ([]ResourceDescriptor, error) {
 	// 验证资源类型
 	if !k.typeRegistry.Exists(resourceType) {
 		return nil, fmt.Errorf("resource type %s not found", resourceType)
 	}
 
 	// 从Actor系统查找资源
-	// 这里需要扩展ResourceManager或System来支持按类型查找
+	// 这里需要扩展Manager或System来支持按类型查找
 	// 暂时返回空列表
 	return []ResourceDescriptor{}, nil
 }
 
 // Watch 监听资源变化（类似inotify）
-func (k *ResourceKernel) Watch(fd ResourceDescriptor, events []EventType) (<-chan Event, error) {
+func (k *Kernel) Watch(fd ResourceDescriptor, events []EventType) (<-chan Event, error) {
 	// TODO: 实现资源变化监听
 	return nil, fmt.Errorf("watch not implemented yet")
 }
@@ -280,7 +281,7 @@ func (k *ResourceKernel) Watch(fd ResourceDescriptor, events []EventType) (<-cha
 type ResourceStat struct {
 	ResourceID     string
 	ResourceType   string
-	TypeDescriptor *kernel.TypeDescriptor
+	TypeDescriptor *meta.TypeDescriptor
 	Capabilities   []CapabilityInfo
 }
 
@@ -315,14 +316,14 @@ type Event struct {
 }
 
 // 辅助函数
-func getOperations(cap *kernel.CapabilityDescriptor) []string {
+func getOperations(cap *meta.CapabilityDescriptor) []string {
 	if cap == nil {
 		return []string{}
 	}
 	return cap.Operations
 }
 
-func getDescription(cap *kernel.CapabilityDescriptor) string {
+func getDescription(cap *meta.CapabilityDescriptor) string {
 	if cap == nil {
 		return ""
 	}
@@ -346,5 +347,3 @@ func convertIoctlToControlCommand(ioctlCmd int) ControlCommand {
 		return ControlCommand(ioctlCmd)
 	}
 }
-
-

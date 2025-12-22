@@ -1,4 +1,4 @@
-package resource
+package kernel
 
 import (
 	"fmt"
@@ -34,8 +34,8 @@ type ResourceHandle struct {
 	resource   *Resource // 指向资源
 }
 
-// ResourceManager 资源管理器（类似文件系统）
-type ResourceManager struct {
+// Manager 资源管理器（类似文件系统）
+type Manager struct {
 	system    *actors.System
 	handles   map[ResourceDescriptor]*ResourceHandle // 描述符 -> Handle
 	resources map[string]*Resource                   // resourceID -> Resource
@@ -43,9 +43,9 @@ type ResourceManager struct {
 	mu        sync.RWMutex
 }
 
-// NewResourceManager 创建资源管理器
-func NewResourceManager(system *actors.System) *ResourceManager {
-	return &ResourceManager{
+// NewManager 创建资源管理器
+func NewManager(system *actors.System) *Manager {
+	return &Manager{
 		system:    system,
 		handles:   make(map[ResourceDescriptor]*ResourceHandle),
 		resources: make(map[string]*Resource),
@@ -56,12 +56,12 @@ func NewResourceManager(system *actors.System) *ResourceManager {
 // Open 打开资源，返回资源描述符
 // 每次Open都会分配新的描述符，但资源本身会维护引用计数
 // 如果资源是排他性的且已被打开，则返回错误
-func (rm *ResourceManager) Open(resourceID string) (ResourceDescriptor, error) {
+func (rm *Manager) Open(resourceID string) (ResourceDescriptor, error) {
 	return rm.OpenWithExclusive(resourceID, false)
 }
 
 // OpenWithExclusive 打开资源，可指定是否为排他性资源
-func (rm *ResourceManager) OpenWithExclusive(resourceID string, exclusive bool) (ResourceDescriptor, error) {
+func (rm *Manager) OpenWithExclusive(resourceID string, exclusive bool) (ResourceDescriptor, error) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
@@ -131,7 +131,7 @@ func (rm *ResourceManager) OpenWithExclusive(resourceID string, exclusive bool) 
 // 删除Handle，减少Resource的引用计数
 // 当引用计数变为0时，排他性资源可以再次打开
 // 类似 POSIX close()
-func (rm *ResourceManager) Close(fd ResourceDescriptor) error {
+func (rm *Manager) Close(fd ResourceDescriptor) error {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
@@ -164,7 +164,7 @@ func (rm *ResourceManager) Close(fd ResourceDescriptor) error {
 }
 
 // GetHandle 获取资源句柄（内部使用）
-func (rm *ResourceManager) GetHandle(fd ResourceDescriptor) (*ResourceHandle, error) {
+func (rm *Manager) GetHandle(fd ResourceDescriptor) (*ResourceHandle, error) {
 	rm.mu.RLock()
 	defer rm.mu.RUnlock()
 
@@ -177,7 +177,7 @@ func (rm *ResourceManager) GetHandle(fd ResourceDescriptor) (*ResourceHandle, er
 }
 
 // GetResource 获取资源（内部使用）
-func (rm *ResourceManager) GetResource(resourceID string) (*Resource, error) {
+func (rm *Manager) GetResource(resourceID string) (*Resource, error) {
 	rm.mu.RLock()
 	defer rm.mu.RUnlock()
 

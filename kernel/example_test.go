@@ -1,14 +1,14 @@
-package resource_test
+package kernel_test
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/uos-projects/uos-kernel/actors"
-	"github.com/uos-projects/uos-kernel/resource"
+	"github.com/uos-projects/uos-kernel/kernel"
 )
 
-func ExampleResourceManager() {
+func ExampleManager() {
 	ctx := context.Background()
 
 	// 创建 Actor 系统
@@ -29,7 +29,7 @@ func ExampleResourceManager() {
 	system.Register(actor)
 
 	// 创建资源管理器
-	rm := resource.NewResourceManager(system)
+	rm := kernel.NewManager(system)
 
 	// 1. 打开资源（每次Open都会返回新的描述符）
 	fd1, err := rm.Open("BE-G4")
@@ -60,27 +60,27 @@ func ExampleResourceManager() {
 	}
 
 	// 3. 使用 rctl 获取资源信息
-	info, _ := rm.RCtl(ctx, fd, resource.CMD_GET_RESOURCE_INFO, nil)
+	info, _ := rm.RCtl(ctx, fd, kernel.CMD_GET_RESOURCE_INFO, nil)
 	if info != nil {
 		fmt.Printf("Resource Info: %+v\n", info)
 	}
 
 	// 4. 使用 rctl 列出所有能力
-	caps, _ := rm.RCtl(ctx, fd, resource.CMD_LIST_CAPABILITIES, nil)
+	caps, _ := rm.RCtl(ctx, fd, kernel.CMD_LIST_CAPABILITIES, nil)
 	fmt.Printf("Capabilities: %v\n", caps)
 
 	// 5. 使用 rctl 发送 SetPoint 控制命令
 	setPointArg := map[string]interface{}{
 		"value": 150.0,
 	}
-	rm.RCtl(ctx, fd, resource.CMD_SET_POINT, setPointArg)
+	rm.RCtl(ctx, fd, kernel.CMD_SET_POINT, setPointArg)
 
 	// 6. 使用 rctl 发送 Command 控制命令
 	commandArg := map[string]interface{}{
 		"command": "START",
 		"value":   1,
 	}
-	rm.RCtl(ctx, fd, resource.CMD_COMMAND, commandArg)
+	rm.RCtl(ctx, fd, kernel.CMD_COMMAND, commandArg)
 
 	// Output:
 	// First descriptor: 0
@@ -92,7 +92,7 @@ func ExampleResourceManager() {
 	// Capabilities: [SetPointCapacity CommandCapacity]
 }
 
-func ExampleResourceManager_Exclusive() {
+func ExampleManager_Exclusive() {
 	ctx := context.Background()
 
 	// 创建 Actor 系统
@@ -104,7 +104,7 @@ func ExampleResourceManager_Exclusive() {
 	system.Register(actor)
 
 	// 创建资源管理器
-	rm := resource.NewResourceManager(system)
+	rm := kernel.NewManager(system)
 
 	// 1. 以排他性方式打开资源
 	fd1, err := rm.OpenWithExclusive("EXCLUSIVE-RESOURCE", true)

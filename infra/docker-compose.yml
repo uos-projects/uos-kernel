@@ -2,7 +2,7 @@ services:
   minio:
     # 注意：MinIO 自 2025-10 起不再提供官方 Docker 镜像，改为仅源码分发
     # 使用最后一个可用的官方镜像版本
-    image: quay.io/minio/minio:RELEASE.2024-10-02T17-50-41Z
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: iceberg-minio
     command: server --console-address ":9001" /data
     environment:
@@ -47,6 +47,8 @@ services:
       HIVE_SERVER2_TRANSPORT_MODE: http
       HIVE_SERVER2_THRIFT_HTTP_PORT: 10001
       HIVE_SERVER2_HTTP_ENDPOINT: cliservice
+    volumes:
+      - ./spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
     # 使用环境变量覆盖配置，避免默认的 demo catalog 连接到不存在的 rest:8181
     # 注意：tabulario/spark-iceberg 镜像默认启动 Jupyter，需要手动启动 Thrift Server
     ports:
