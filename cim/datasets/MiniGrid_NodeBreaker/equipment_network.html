@@ -1,0 +1,5274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CIM 设备连接关系可视化</title>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        #header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+        }
+        .stat-item {
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+        }
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2196F3;
+        }
+        .network-container {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .network-panel {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .network-panel h2 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+            color: #333;
+        }
+        #network {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+        }
+        #topology-network {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+        }
+        #legend {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .legend-item {
+            display: inline-block;
+            margin: 5px 15px;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        .legend-color {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>🔌 CIM 设备连接关系可视化</h1>
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-label">设备总数</div>
+                <div class="stat-value">127</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">端子总数</div>
+                <div class="stat-value">233</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">连接节点</div>
+                <div class="stat-value">101</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">连接关系</div>
+                <div class="stat-value">195</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="network-container">
+        <div class="network-panel">
+            <h2>🔌 物理设备网络 (Node-Breaker Model)</h2>
+            <div id="network"></div>
+        </div>
+        
+        <div class="network-panel">
+            <h2>🌐 拓扑网络 (Bus-Branch Model)</h2>
+            <div id="topology-network"></div>
+        </div>
+        
+    </div>
+    
+    <div id="legend">
+        <h3>图例</h3>
+        <div class="legend-item"><span class="legend-color" style="background-color: #4CAF50;"></span><span>ACLineSegment</span></div><div class="legend-item"><span class="legend-color" style="background-color: #FF9800;"></span><span>AsynchronousMachine</span></div><div class="legend-item"><span class="legend-color" style="background-color: #F44336;"></span><span>Breaker</span></div><div class="legend-item"><span class="legend-color" style="background-color: #607D8B;"></span><span>BusbarSection</span></div><div class="legend-item"><span class="legend-color" style="background-color: #E91E63;"></span><span>Disconnector</span></div><div class="legend-item"><span class="legend-color" style="background-color: #795548;"></span><span>ExternalNetworkInjection</span></div><div class="legend-item"><span class="legend-color" style="background-color: #9C27B0;"></span><span>PowerTransformer</span></div><div class="legend-item"><span class="legend-color" style="background-color: #2196F3;"></span><span>SynchronousMachine</span></div><div class="legend-item"><span class="legend-color" style="background-color: #00BCD4;"></span><span>ThermalGeneratingUnit</span></div>
+    </div>
+    
+    <script type="text/javascript">
+        // 节点数据
+        var nodes = new vis.DataSet([
+  {
+    "id": "eq__93346fba-8a54-4969-a063-50e4a037e1f2",
+    "label": "G2\n(ThermalGeneratingUnit)\nID: _93346fb...a037e1f2",
+    "group": "ThermalGeneratingUnit",
+    "color": "#00BCD4",
+    "shape": "box",
+    "title": "ID: _93346fba-8a54-4969-a063-50e4a037e1f2\nType: ThermalGeneratingUnit\nName: G2"
+  },
+  {
+    "id": "eq__2970a2b7-b840-4e9c-b405-0cb854cd2318",
+    "label": "G2\n(SynchronousMachine)\nID: _2970a2b...54cd2318",
+    "group": "SynchronousMachine",
+    "color": "#2196F3",
+    "shape": "box",
+    "title": "ID: _2970a2b7-b840-4e9c-b405-0cb854cd2318\nType: SynchronousMachine\nName: G2"
+  },
+  {
+    "id": "eq__a318334b-6a8d-40cd-9ce2-4526873d5504",
+    "label": "G1\n(ThermalGeneratingUnit)\nID: _a318334...873d5504",
+    "group": "ThermalGeneratingUnit",
+    "color": "#00BCD4",
+    "shape": "box",
+    "title": "ID: _a318334b-6a8d-40cd-9ce2-4526873d5504\nType: ThermalGeneratingUnit\nName: G1"
+  },
+  {
+    "id": "eq__ca67be42-750e-4ebf-bfaa-24d446e59a22",
+    "label": "G1\n(SynchronousMachine)\nID: _ca67be4...46e59a22",
+    "group": "SynchronousMachine",
+    "color": "#2196F3",
+    "shape": "box",
+    "title": "ID: _ca67be42-750e-4ebf-bfaa-24d446e59a22\nType: SynchronousMachine\nName: G1"
+  },
+  {
+    "id": "eq__f1001dea-bb33-4f34-9508-d492af527d35",
+    "label": "G3\n(ThermalGeneratingUnit)\nID: _f1001de...af527d35",
+    "group": "ThermalGeneratingUnit",
+    "color": "#00BCD4",
+    "shape": "box",
+    "title": "ID: _f1001dea-bb33-4f34-9508-d492af527d35\nType: ThermalGeneratingUnit\nName: G3"
+  },
+  {
+    "id": "eq__392ea173-4f8e-48fa-b2a3-5c3721e93196",
+    "label": "G3\n(SynchronousMachine)\nID: _392ea17...21e93196",
+    "group": "SynchronousMachine",
+    "color": "#2196F3",
+    "shape": "box",
+    "title": "ID: _392ea173-4f8e-48fa-b2a3-5c3721e93196\nType: SynchronousMachine\nName: G3"
+  },
+  {
+    "id": "eq__062ece1f-ade5-4d20-9c3a-fd8f12d12ec1",
+    "label": "M3\n(AsynchronousMachine)\nID: _062ece1...12d12ec1",
+    "group": "AsynchronousMachine",
+    "color": "#FF9800",
+    "shape": "box",
+    "title": "ID: _062ece1f-ade5-4d20-9c3a-fd8f12d12ec1\nType: AsynchronousMachine\nName: M3"
+  },
+  {
+    "id": "eq__ba62884d-8800-41a8-9c26-698297d7ebaa",
+    "label": "M2a\n(AsynchronousMachine)\nID: _ba62884...97d7ebaa",
+    "group": "AsynchronousMachine",
+    "color": "#FF9800",
+    "shape": "box",
+    "title": "ID: _ba62884d-8800-41a8-9c26-698297d7ebaa\nType: AsynchronousMachine\nName: M2a"
+  },
+  {
+    "id": "eq__f184d87b-5565-45ee-89b4-29e8a42d3ad1",
+    "label": "M2b\n(AsynchronousMachine)\nID: _f184d87...a42d3ad1",
+    "group": "AsynchronousMachine",
+    "color": "#FF9800",
+    "shape": "box",
+    "title": "ID: _f184d87b-5565-45ee-89b4-29e8a42d3ad1\nType: AsynchronousMachine\nName: M2b"
+  },
+  {
+    "id": "eq__089c1945-4101-487f-a557-66c013b748f6",
+    "label": "Q1\n(ExternalNetworkInjection)\nID: _089c194...13b748f6",
+    "group": "ExternalNetworkInjection",
+    "color": "#795548",
+    "shape": "box",
+    "title": "ID: _089c1945-4101-487f-a557-66c013b748f6\nType: ExternalNetworkInjection\nName: Q1"
+  },
+  {
+    "id": "eq__3de9e1ad-4562-44df-b268-70ed0517e9e7",
+    "label": "Q2\n(ExternalNetworkInjection)\nID: _3de9e1a...0517e9e7",
+    "group": "ExternalNetworkInjection",
+    "color": "#795548",
+    "shape": "box",
+    "title": "ID: _3de9e1ad-4562-44df-b268-70ed0517e9e7\nType: ExternalNetworkInjection\nName: Q2"
+  },
+  {
+    "id": "eq__1e7f52a9-21d0-4ebe-9a8a-b29281d5bfc9",
+    "label": "L5\n(ACLineSegment)\nID: _1e7f52a...81d5bfc9",
+    "group": "ACLineSegment",
+    "color": "#4CAF50",
+    "shape": "box",
+    "title": "ID: _1e7f52a9-21d0-4ebe-9a8a-b29281d5bfc9\nType: ACLineSegment\nName: L5"
+  },
+  {
+    "id": "eq__56757c2b-550e-4843-886a-ed193f6eb21e",
+    "label": "L6\n(ACLineSegment)\nID: _56757c2...3f6eb21e",
+    "group": "ACLineSegment",
+    "color": "#4CAF50",
+    "shape": "box",
+    "title": "ID: _56757c2b-550e-4843-886a-ed193f6eb21e\nType: ACLineSegment\nName: L6"
+  },
+  {
+    "id": "eq__e95a6228-ceac-4f0a-8b52-d35367b364dc",
+    "label": "L4\n(ACLineSegment)\nID: _e95a622...67b364dc",
+    "group": "ACLineSegment",
+    "color": "#4CAF50",
+    "shape": "box",
+    "title": "ID: _e95a6228-ceac-4f0a-8b52-d35367b364dc\nType: ACLineSegment\nName: L4"
+  },
+  {
+    "id": "eq__d5d1cc4a-6297-4386-b6ce-16dc26f15feb",
+    "label": "L1\n(ACLineSegment)\nID: _d5d1cc4...26f15feb",
+    "group": "ACLineSegment",
+    "color": "#4CAF50",
+    "shape": "box",
+    "title": "ID: _d5d1cc4a-6297-4386-b6ce-16dc26f15feb\nType: ACLineSegment\nName: L1"
+  },
+  {
+    "id": "eq__efdd7f46-67e6-46e3-9dcd-a3b6f8c613a4",
+    "label": "L2\n(ACLineSegment)\nID: _efdd7f4...f8c613a4",
+    "group": "ACLineSegment",
+    "color": "#4CAF50",
+    "shape": "box",
+    "title": "ID: _efdd7f46-67e6-46e3-9dcd-a3b6f8c613a4\nType: ACLineSegment\nName: L2"
+  },
+  {
+    "id": "eq__35df6abe-3087-4c27-a90a-12b5065333f3",
+    "label": "L3_a\n(ACLineSegment)\nID: _35df6ab...065333f3",
+    "group": "ACLineSegment",
+    "color": "#4CAF50",
+    "shape": "box",
+    "title": "ID: _35df6abe-3087-4c27-a90a-12b5065333f3\nType: ACLineSegment\nName: L3_a"
+  },
+  {
+    "id": "eq__05597934-b248-491e-803a-68ce6290f502",
+    "label": "L3_b\n(ACLineSegment)\nID: _0559793...6290f502",
+    "group": "ACLineSegment",
+    "color": "#4CAF50",
+    "shape": "box",
+    "title": "ID: _05597934-b248-491e-803a-68ce6290f502\nType: ACLineSegment\nName: L3_b"
+  },
+  {
+    "id": "eq__ceb5d06a-a7ff-4102-a620-7f3ea5fb4a51",
+    "label": "T5\n(PowerTransformer)\nID: _ceb5d06...a5fb4a51",
+    "group": "PowerTransformer",
+    "color": "#9C27B0",
+    "shape": "box",
+    "title": "ID: _ceb5d06a-a7ff-4102-a620-7f3ea5fb4a51\nType: PowerTransformer\nName: T5"
+  },
+  {
+    "id": "eq__6c89588b-3df5-4120-88e5-26164afb43e9",
+    "label": "T6\n(PowerTransformer)\nID: _6c89588...4afb43e9",
+    "group": "PowerTransformer",
+    "color": "#9C27B0",
+    "shape": "box",
+    "title": "ID: _6c89588b-3df5-4120-88e5-26164afb43e9\nType: PowerTransformer\nName: T6"
+  },
+  {
+    "id": "eq__f1e72854-ec35-46e9-b614-27db354e8dbb",
+    "label": "T2\n(PowerTransformer)\nID: _f1e7285...354e8dbb",
+    "group": "PowerTransformer",
+    "color": "#9C27B0",
+    "shape": "box",
+    "title": "ID: _f1e72854-ec35-46e9-b614-27db354e8dbb\nType: PowerTransformer\nName: T2"
+  },
+  {
+    "id": "eq__813365c3-5be7-4ef0-a0a7-abd1ae6dc174",
+    "label": "T1\n(PowerTransformer)\nID: _813365c...ae6dc174",
+    "group": "PowerTransformer",
+    "color": "#9C27B0",
+    "shape": "box",
+    "title": "ID: _813365c3-5be7-4ef0-a0a7-abd1ae6dc174\nType: PowerTransformer\nName: T1"
+  },
+  {
+    "id": "eq__411b5401-0a43-404a-acb4-05c3d7d0c95c",
+    "label": "T4\n(PowerTransformer)\nID: _411b540...d7d0c95c",
+    "group": "PowerTransformer",
+    "color": "#9C27B0",
+    "shape": "box",
+    "title": "ID: _411b5401-0a43-404a-acb4-05c3d7d0c95c\nType: PowerTransformer\nName: T4"
+  },
+  {
+    "id": "eq__5d38b7ed-73fd-405a-9cdb-78425e003773",
+    "label": "T3\n(PowerTransformer)\nID: _5d38b7e...5e003773",
+    "group": "PowerTransformer",
+    "color": "#9C27B0",
+    "shape": "box",
+    "title": "ID: _5d38b7ed-73fd-405a-9cdb-78425e003773\nType: PowerTransformer\nName: T3"
+  },
+  {
+    "id": "eq__5150a037-e241-421f-98b2-fe60e5c90303",
+    "label": "XQ1-N1\n(ACLineSegment)\nID: _5150a03...e5c90303",
+    "group": "ACLineSegment",
+    "color": "#4CAF50",
+    "shape": "box",
+    "title": "ID: _5150a037-e241-421f-98b2-fe60e5c90303\nType: ACLineSegment\nName: XQ1-N1"
+  },
+  {
+    "id": "eq__f32baf36-7ea3-4b6a-9452-71e7f18779f8",
+    "label": "XQ2-N5\n(ACLineSegment)\nID: _f32baf3...f18779f8",
+    "group": "ACLineSegment",
+    "color": "#4CAF50",
+    "shape": "box",
+    "title": "ID: _f32baf36-7ea3-4b6a-9452-71e7f18779f8\nType: ACLineSegment\nName: XQ2-N5"
+  },
+  {
+    "id": "eq__1a89e8aa-04e8-4640-adf2-bcb07b18045d",
+    "label": "BUSBAR1\n(BusbarSection)\nID: _1a89e8a...7b18045d",
+    "group": "BusbarSection",
+    "color": "#607D8B",
+    "shape": "box",
+    "title": "ID: _1a89e8aa-04e8-4640-adf2-bcb07b18045d\nType: BusbarSection\nName: BUSBAR1"
+  },
+  {
+    "id": "eq__5938ea51-0cfb-4c6c-8d6f-c2bf3254c94a",
+    "label": "DISCONNECTOR1\n(Disconnector)\nID: _5938ea5...3254c94a",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _5938ea51-0cfb-4c6c-8d6f-c2bf3254c94a\nType: Disconnector\nName: DISCONNECTOR1"
+  },
+  {
+    "id": "eq__5e9f0079-647e-46da-b0ee-f5f24e127602",
+    "label": "BREAKER1\n(Breaker)\nID: _5e9f007...4e127602",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _5e9f0079-647e-46da-b0ee-f5f24e127602\nType: Breaker\nName: BREAKER1"
+  },
+  {
+    "id": "eq__4580fb7b-c31b-4b84-ad1d-1ca4d50f4fc5",
+    "label": "DISCONNECTOR2\n(Disconnector)\nID: _4580fb7...d50f4fc5",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _4580fb7b-c31b-4b84-ad1d-1ca4d50f4fc5\nType: Disconnector\nName: DISCONNECTOR2"
+  },
+  {
+    "id": "eq__da8e9cec-96f8-4048-b31a-a56f5ef53c31",
+    "label": "BUSBAR2\n(BusbarSection)\nID: _da8e9ce...5ef53c31",
+    "group": "BusbarSection",
+    "color": "#607D8B",
+    "shape": "box",
+    "title": "ID: _da8e9cec-96f8-4048-b31a-a56f5ef53c31\nType: BusbarSection\nName: BUSBAR2"
+  },
+  {
+    "id": "eq__3006c97d-d51e-4e7b-92b1-a9a321f585ce",
+    "label": "DISCONNECTOR3\n(Disconnector)\nID: _3006c97...21f585ce",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _3006c97d-d51e-4e7b-92b1-a9a321f585ce\nType: Disconnector\nName: DISCONNECTOR3"
+  },
+  {
+    "id": "eq__622a9aff-f9d4-49c7-8f29-fd88009c5df0",
+    "label": "BREAKER2\n(Breaker)\nID: _622a9af...009c5df0",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _622a9aff-f9d4-49c7-8f29-fd88009c5df0\nType: Breaker\nName: BREAKER2"
+  },
+  {
+    "id": "eq__f5335138-f3b9-400b-abf1-e9b559c887b2",
+    "label": "DISCONNECTOR4\n(Disconnector)\nID: _f533513...59c887b2",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _f5335138-f3b9-400b-abf1-e9b559c887b2\nType: Disconnector\nName: DISCONNECTOR4"
+  },
+  {
+    "id": "eq__84a0d591-e69e-407d-991d-54b3c6394d09",
+    "label": "BUSBAR3\n(BusbarSection)\nID: _84a0d59...c6394d09",
+    "group": "BusbarSection",
+    "color": "#607D8B",
+    "shape": "box",
+    "title": "ID: _84a0d591-e69e-407d-991d-54b3c6394d09\nType: BusbarSection\nName: BUSBAR3"
+  },
+  {
+    "id": "eq__7d655d91-394a-4f47-8f83-7f1de3baa056",
+    "label": "DISCONNECTOR5\n(Disconnector)\nID: _7d655d9...e3baa056",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _7d655d91-394a-4f47-8f83-7f1de3baa056\nType: Disconnector\nName: DISCONNECTOR5"
+  },
+  {
+    "id": "eq__4c49cfd1-4758-476e-95ce-5cd2c56e3165",
+    "label": "BREAKER3\n(Breaker)\nID: _4c49cfd...c56e3165",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _4c49cfd1-4758-476e-95ce-5cd2c56e3165\nType: Breaker\nName: BREAKER3"
+  },
+  {
+    "id": "eq__dcba20ce-b619-471a-8ab0-2371d4d090b0",
+    "label": "DISCONNECTOR6\n(Disconnector)\nID: _dcba20c...d4d090b0",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _dcba20ce-b619-471a-8ab0-2371d4d090b0\nType: Disconnector\nName: DISCONNECTOR6"
+  },
+  {
+    "id": "eq__4171593e-40e0-4937-8c04-2276c3c16d68",
+    "label": "BUSBAR4\n(BusbarSection)\nID: _4171593...c3c16d68",
+    "group": "BusbarSection",
+    "color": "#607D8B",
+    "shape": "box",
+    "title": "ID: _4171593e-40e0-4937-8c04-2276c3c16d68\nType: BusbarSection\nName: BUSBAR4"
+  },
+  {
+    "id": "eq__3a783d1d-1113-414d-ab67-34b139781196",
+    "label": "DISCONNECTOR7\n(Disconnector)\nID: _3a783d1...39781196",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _3a783d1d-1113-414d-ab67-34b139781196\nType: Disconnector\nName: DISCONNECTOR7"
+  },
+  {
+    "id": "eq__fbdcf00d-8a07-4c62-9e39-86f459bea2be",
+    "label": "BREAKER4\n(Breaker)\nID: _fbdcf00...59bea2be",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _fbdcf00d-8a07-4c62-9e39-86f459bea2be\nType: Breaker\nName: BREAKER4"
+  },
+  {
+    "id": "eq__83317cbd-8326-44b8-a9fb-f69b6ba5a1cb",
+    "label": "DISCONNECTOR8\n(Disconnector)\nID: _83317cb...6ba5a1cb",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _83317cbd-8326-44b8-a9fb-f69b6ba5a1cb\nType: Disconnector\nName: DISCONNECTOR8"
+  },
+  {
+    "id": "eq__fe1384c9-f1c1-4026-9f5d-10a3b22208b9",
+    "label": "DISCONNECTOR9\n(Disconnector)\nID: _fe1384c...b22208b9",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _fe1384c9-f1c1-4026-9f5d-10a3b22208b9\nType: Disconnector\nName: DISCONNECTOR9"
+  },
+  {
+    "id": "eq__2ed632f6-36a3-4937-8d5d-ad105c57c071",
+    "label": "BREAKER5\n(Breaker)\nID: _2ed632f...5c57c071",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _2ed632f6-36a3-4937-8d5d-ad105c57c071\nType: Breaker\nName: BREAKER5"
+  },
+  {
+    "id": "eq__154f3756-4e07-4f06-9147-ed83de84e265",
+    "label": "DISCONNECTOR10\n(Disconnector)\nID: _154f375...de84e265",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _154f3756-4e07-4f06-9147-ed83de84e265\nType: Disconnector\nName: DISCONNECTOR10"
+  },
+  {
+    "id": "eq__78f2ae0e-da25-483a-8a71-76f709389894",
+    "label": "BUSBAR5\n(BusbarSection)\nID: _78f2ae0...09389894",
+    "group": "BusbarSection",
+    "color": "#607D8B",
+    "shape": "box",
+    "title": "ID: _78f2ae0e-da25-483a-8a71-76f709389894\nType: BusbarSection\nName: BUSBAR5"
+  },
+  {
+    "id": "eq__15d6eb77-36d6-48d0-a227-25d29e839517",
+    "label": "DISCONNECTOR11\n(Disconnector)\nID: _15d6eb7...9e839517",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _15d6eb77-36d6-48d0-a227-25d29e839517\nType: Disconnector\nName: DISCONNECTOR11"
+  },
+  {
+    "id": "eq__a9b68255-188c-408d-8362-5f3b0a1e730f",
+    "label": "BREAKER6\n(Breaker)\nID: _a9b6825...0a1e730f",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _a9b68255-188c-408d-8362-5f3b0a1e730f\nType: Breaker\nName: BREAKER6"
+  },
+  {
+    "id": "eq__84970563-073f-4316-a175-060b544640e0",
+    "label": "DISCONNECTOR12\n(Disconnector)\nID: _8497056...544640e0",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _84970563-073f-4316-a175-060b544640e0\nType: Disconnector\nName: DISCONNECTOR12"
+  },
+  {
+    "id": "eq__bbbfc5c0-45ee-49fd-9dec-17c90af3f42b",
+    "label": "BUSBAR6\n(BusbarSection)\nID: _bbbfc5c...0af3f42b",
+    "group": "BusbarSection",
+    "color": "#607D8B",
+    "shape": "box",
+    "title": "ID: _bbbfc5c0-45ee-49fd-9dec-17c90af3f42b\nType: BusbarSection\nName: BUSBAR6"
+  },
+  {
+    "id": "eq__ea5a6982-018c-4ce6-85f6-78b5ab5dbfc1",
+    "label": "DISCONNECTOR13\n(Disconnector)\nID: _ea5a698...ab5dbfc1",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _ea5a6982-018c-4ce6-85f6-78b5ab5dbfc1\nType: Disconnector\nName: DISCONNECTOR13"
+  },
+  {
+    "id": "eq__62156fd8-595d-4ab0-af53-0de3b8056a6e",
+    "label": "BREAKER7\n(Breaker)\nID: _62156fd...b8056a6e",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _62156fd8-595d-4ab0-af53-0de3b8056a6e\nType: Breaker\nName: BREAKER7"
+  },
+  {
+    "id": "eq__f88b1d2b-2f06-44ff-bfe5-8f1156e13092",
+    "label": "DISCONNECTOR14\n(Disconnector)\nID: _f88b1d2...56e13092",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _f88b1d2b-2f06-44ff-bfe5-8f1156e13092\nType: Disconnector\nName: DISCONNECTOR14"
+  },
+  {
+    "id": "eq__faf75564-a154-4528-9428-913e6501a21f",
+    "label": "DISCONNECTOR15\n(Disconnector)\nID: _faf7556...6501a21f",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _faf75564-a154-4528-9428-913e6501a21f\nType: Disconnector\nName: DISCONNECTOR15"
+  },
+  {
+    "id": "eq__285ccb1e-a867-4efc-880e-e871c1929376",
+    "label": "BREAKER8\n(Breaker)\nID: _285ccb1...c1929376",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _285ccb1e-a867-4efc-880e-e871c1929376\nType: Breaker\nName: BREAKER8"
+  },
+  {
+    "id": "eq__22e27c40-eb38-4f04-aebd-7ef543798211",
+    "label": "DISCONNECTOR16\n(Disconnector)\nID: _22e27c4...43798211",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _22e27c40-eb38-4f04-aebd-7ef543798211\nType: Disconnector\nName: DISCONNECTOR16"
+  },
+  {
+    "id": "eq__9313f8a4-159d-48c8-92f1-36b1d16ee7c9",
+    "label": "DISCONNECTOR17\n(Disconnector)\nID: _9313f8a...d16ee7c9",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _9313f8a4-159d-48c8-92f1-36b1d16ee7c9\nType: Disconnector\nName: DISCONNECTOR17"
+  },
+  {
+    "id": "eq__8e57f735-6869-463e-959e-b517b15a5ec5",
+    "label": "BREAKER9\n(Breaker)\nID: _8e57f73...b15a5ec5",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _8e57f735-6869-463e-959e-b517b15a5ec5\nType: Breaker\nName: BREAKER9"
+  },
+  {
+    "id": "eq__869b6ad5-3975-49ae-81fe-01547a229a25",
+    "label": "DISCONNECTOR18\n(Disconnector)\nID: _869b6ad...7a229a25",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _869b6ad5-3975-49ae-81fe-01547a229a25\nType: Disconnector\nName: DISCONNECTOR18"
+  },
+  {
+    "id": "eq__8fa214d6-5b7f-4d04-8de7-e5609d9f9deb",
+    "label": "DISCONNECTOR19\n(Disconnector)\nID: _8fa214d...9d9f9deb",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _8fa214d6-5b7f-4d04-8de7-e5609d9f9deb\nType: Disconnector\nName: DISCONNECTOR19"
+  },
+  {
+    "id": "eq__eb33e134-698f-4258-8361-4b5fa4c2f9de",
+    "label": "BREAKER10\n(Breaker)\nID: _eb33e13...a4c2f9de",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _eb33e134-698f-4258-8361-4b5fa4c2f9de\nType: Breaker\nName: BREAKER10"
+  },
+  {
+    "id": "eq__9e8afc23-52fc-40e6-ab85-3d0328a228f2",
+    "label": "DISCONNECTOR20\n(Disconnector)\nID: _9e8afc2...28a228f2",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _9e8afc23-52fc-40e6-ab85-3d0328a228f2\nType: Disconnector\nName: DISCONNECTOR20"
+  },
+  {
+    "id": "eq__90e1b509-e6d1-4a3b-8dcc-587f8b362bd3",
+    "label": "DISCONNECTOR21\n(Disconnector)\nID: _90e1b50...8b362bd3",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _90e1b509-e6d1-4a3b-8dcc-587f8b362bd3\nType: Disconnector\nName: DISCONNECTOR21"
+  },
+  {
+    "id": "eq__788bb5ff-f36e-406b-b6a6-ea1b7268ba03",
+    "label": "BREAKER11\n(Breaker)\nID: _788bb5f...7268ba03",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _788bb5ff-f36e-406b-b6a6-ea1b7268ba03\nType: Breaker\nName: BREAKER11"
+  },
+  {
+    "id": "eq__ef2f27d9-acde-4aad-a920-d61c98682f4d",
+    "label": "DISCONNECTOR22\n(Disconnector)\nID: _ef2f27d...98682f4d",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _ef2f27d9-acde-4aad-a920-d61c98682f4d\nType: Disconnector\nName: DISCONNECTOR22"
+  },
+  {
+    "id": "eq__b68ac335-9806-4609-812c-1f47f8738bde",
+    "label": "DISCONNECTOR23\n(Disconnector)\nID: _b68ac33...f8738bde",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _b68ac335-9806-4609-812c-1f47f8738bde\nType: Disconnector\nName: DISCONNECTOR23"
+  },
+  {
+    "id": "eq__a5a962a6-2f47-4ef1-960f-e29131bcba36",
+    "label": "BREAKER12\n(Breaker)\nID: _a5a962a...31bcba36",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _a5a962a6-2f47-4ef1-960f-e29131bcba36\nType: Breaker\nName: BREAKER12"
+  },
+  {
+    "id": "eq__b0677acc-df2e-4730-9516-fab2403103d0",
+    "label": "DISCONNECTOR24\n(Disconnector)\nID: _b0677ac...403103d0",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _b0677acc-df2e-4730-9516-fab2403103d0\nType: Disconnector\nName: DISCONNECTOR24"
+  },
+  {
+    "id": "eq__b81c76fd-24fb-4888-a52e-5a9d0177df1d",
+    "label": "DISCONNECTOR25\n(Disconnector)\nID: _b81c76f...0177df1d",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _b81c76fd-24fb-4888-a52e-5a9d0177df1d\nType: Disconnector\nName: DISCONNECTOR25"
+  },
+  {
+    "id": "eq__f58f46ea-b73b-421e-9fea-a86126a95b10",
+    "label": "BREAKER13\n(Breaker)\nID: _f58f46e...26a95b10",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _f58f46ea-b73b-421e-9fea-a86126a95b10\nType: Breaker\nName: BREAKER13"
+  },
+  {
+    "id": "eq__06917aa0-6cc2-4d46-b37b-6ed9fec32ccd",
+    "label": "DISCONNECTOR26\n(Disconnector)\nID: _06917aa...fec32ccd",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _06917aa0-6cc2-4d46-b37b-6ed9fec32ccd\nType: Disconnector\nName: DISCONNECTOR26"
+  },
+  {
+    "id": "eq__c6727598-4dae-4226-a542-166766d2f702",
+    "label": "DISCONNECTOR27\n(Disconnector)\nID: _c672759...66d2f702",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _c6727598-4dae-4226-a542-166766d2f702\nType: Disconnector\nName: DISCONNECTOR27"
+  },
+  {
+    "id": "eq__c217742e-f713-44b7-a0b2-7c78aebc165d",
+    "label": "BREAKER14\n(Breaker)\nID: _c217742...aebc165d",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _c217742e-f713-44b7-a0b2-7c78aebc165d\nType: Breaker\nName: BREAKER14"
+  },
+  {
+    "id": "eq__6f28743a-c690-4569-b229-977566414a16",
+    "label": "DISCONNECTOR28\n(Disconnector)\nID: _6f28743...66414a16",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _6f28743a-c690-4569-b229-977566414a16\nType: Disconnector\nName: DISCONNECTOR28"
+  },
+  {
+    "id": "eq__79341979-e66c-4b08-8053-6d97216e0777",
+    "label": "DISCONNECTOR29\n(Disconnector)\nID: _7934197...216e0777",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _79341979-e66c-4b08-8053-6d97216e0777\nType: Disconnector\nName: DISCONNECTOR29"
+  },
+  {
+    "id": "eq__a772f653-51f9-498c-afc9-c37b2a49cf32",
+    "label": "BREAKER15\n(Breaker)\nID: _a772f65...2a49cf32",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _a772f653-51f9-498c-afc9-c37b2a49cf32\nType: Breaker\nName: BREAKER15"
+  },
+  {
+    "id": "eq__74534b01-b13b-49a2-b0d7-d0feb1348ef5",
+    "label": "DISCONNECTOR30\n(Disconnector)\nID: _74534b0...b1348ef5",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _74534b01-b13b-49a2-b0d7-d0feb1348ef5\nType: Disconnector\nName: DISCONNECTOR30"
+  },
+  {
+    "id": "eq__c7f7f032-1e4d-494a-9352-bad1a3056e3f",
+    "label": "DISCONNECTOR31\n(Disconnector)\nID: _c7f7f03...a3056e3f",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _c7f7f032-1e4d-494a-9352-bad1a3056e3f\nType: Disconnector\nName: DISCONNECTOR31"
+  },
+  {
+    "id": "eq__c1e02075-4fdf-41e1-b5e4-925bb2396011",
+    "label": "BREAKER16\n(Breaker)\nID: _c1e0207...b2396011",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _c1e02075-4fdf-41e1-b5e4-925bb2396011\nType: Breaker\nName: BREAKER16"
+  },
+  {
+    "id": "eq__2ec6cb16-7516-46f9-8cd8-2a52eea85bb5",
+    "label": "DISCONNECTOR32\n(Disconnector)\nID: _2ec6cb1...eea85bb5",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _2ec6cb16-7516-46f9-8cd8-2a52eea85bb5\nType: Disconnector\nName: DISCONNECTOR32"
+  },
+  {
+    "id": "eq__c803aa12-a8c7-4491-8163-1a1c6ea60db8",
+    "label": "DISCONNECTOR33\n(Disconnector)\nID: _c803aa1...6ea60db8",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _c803aa12-a8c7-4491-8163-1a1c6ea60db8\nType: Disconnector\nName: DISCONNECTOR33"
+  },
+  {
+    "id": "eq__6557ecb5-b9a7-4089-aa70-58d4d11f503b",
+    "label": "BREAKER17\n(Breaker)\nID: _6557ecb...d11f503b",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _6557ecb5-b9a7-4089-aa70-58d4d11f503b\nType: Breaker\nName: BREAKER17"
+  },
+  {
+    "id": "eq__ac85d2fb-2417-4a86-9c63-d389e6ffae47",
+    "label": "DISCONNECTOR34\n(Disconnector)\nID: _ac85d2f...e6ffae47",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _ac85d2fb-2417-4a86-9c63-d389e6ffae47\nType: Disconnector\nName: DISCONNECTOR34"
+  },
+  {
+    "id": "eq__2c03a3cf-4890-4092-9fe3-c6d139677882",
+    "label": "DISCONNECTOR35\n(Disconnector)\nID: _2c03a3c...39677882",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _2c03a3cf-4890-4092-9fe3-c6d139677882\nType: Disconnector\nName: DISCONNECTOR35"
+  },
+  {
+    "id": "eq__d0119330-220f-4ed3-ad3c-f893ad0534fb",
+    "label": "BREAKER18\n(Breaker)\nID: _d011933...ad0534fb",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _d0119330-220f-4ed3-ad3c-f893ad0534fb\nType: Breaker\nName: BREAKER18"
+  },
+  {
+    "id": "eq__64b4c3d3-0116-4477-af5f-76fe482a4347",
+    "label": "DISCONNECTOR36\n(Disconnector)\nID: _64b4c3d...482a4347",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _64b4c3d3-0116-4477-af5f-76fe482a4347\nType: Disconnector\nName: DISCONNECTOR36"
+  },
+  {
+    "id": "eq__9dc3bedf-0d30-4a56-ba5c-f2e69d7997ee",
+    "label": "DISCONNECTOR37\n(Disconnector)\nID: _9dc3bed...9d7997ee",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _9dc3bedf-0d30-4a56-ba5c-f2e69d7997ee\nType: Disconnector\nName: DISCONNECTOR37"
+  },
+  {
+    "id": "eq__d6665f59-851b-4183-81b0-59c53e1baa6a",
+    "label": "BREAKER19\n(Breaker)\nID: _d6665f5...3e1baa6a",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _d6665f59-851b-4183-81b0-59c53e1baa6a\nType: Breaker\nName: BREAKER19"
+  },
+  {
+    "id": "eq__b8924fbf-6513-4385-b032-21045c0a5b8f",
+    "label": "DISCONNECTOR38\n(Disconnector)\nID: _b8924fb...5c0a5b8f",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _b8924fbf-6513-4385-b032-21045c0a5b8f\nType: Disconnector\nName: DISCONNECTOR38"
+  },
+  {
+    "id": "eq__25781dc3-bf27-4b5d-b920-e71f246bcde6",
+    "label": "BUSBAR7\n(BusbarSection)\nID: _25781dc...246bcde6",
+    "group": "BusbarSection",
+    "color": "#607D8B",
+    "shape": "box",
+    "title": "ID: _25781dc3-bf27-4b5d-b920-e71f246bcde6\nType: BusbarSection\nName: BUSBAR7"
+  },
+  {
+    "id": "eq__cd8813aa-3213-4d9a-994d-4a4513e458b4",
+    "label": "DISCONNECTOR39\n(Disconnector)\nID: _cd8813a...13e458b4",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _cd8813aa-3213-4d9a-994d-4a4513e458b4\nType: Disconnector\nName: DISCONNECTOR39"
+  },
+  {
+    "id": "eq__1287758d-606d-44c9-9e93-2f465ebf54b7",
+    "label": "BREAKER20\n(Breaker)\nID: _1287758...5ebf54b7",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _1287758d-606d-44c9-9e93-2f465ebf54b7\nType: Breaker\nName: BREAKER20"
+  },
+  {
+    "id": "eq__8e56ead3-f4d3-4cd9-a34f-c7340ff7384d",
+    "label": "DISCONNECTOR40\n(Disconnector)\nID: _8e56ead...0ff7384d",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _8e56ead3-f4d3-4cd9-a34f-c7340ff7384d\nType: Disconnector\nName: DISCONNECTOR40"
+  },
+  {
+    "id": "eq__a43ab51f-ba09-4224-8437-63a9ab30ea50",
+    "label": "BUSBAR8\n(BusbarSection)\nID: _a43ab51...ab30ea50",
+    "group": "BusbarSection",
+    "color": "#607D8B",
+    "shape": "box",
+    "title": "ID: _a43ab51f-ba09-4224-8437-63a9ab30ea50\nType: BusbarSection\nName: BUSBAR8"
+  },
+  {
+    "id": "eq__b7e79b65-8d3e-4ee9-bf05-12bf2250b12d",
+    "label": "DISCONNECTOR41\n(Disconnector)\nID: _b7e79b6...2250b12d",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _b7e79b65-8d3e-4ee9-bf05-12bf2250b12d\nType: Disconnector\nName: DISCONNECTOR41"
+  },
+  {
+    "id": "eq__052682ba-a4e5-41d5-9728-0fa4e2e01011",
+    "label": "BREAKER21\n(Breaker)\nID: _052682b...e2e01011",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _052682ba-a4e5-41d5-9728-0fa4e2e01011\nType: Breaker\nName: BREAKER21"
+  },
+  {
+    "id": "eq__2af10fbd-4763-4940-b11d-00dcd7627016",
+    "label": "DISCONNECTOR42\n(Disconnector)\nID: _2af10fb...d7627016",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _2af10fbd-4763-4940-b11d-00dcd7627016\nType: Disconnector\nName: DISCONNECTOR42"
+  },
+  {
+    "id": "eq__27cb23c0-ad7b-4019-8cdf-205e240f742a",
+    "label": "DISCONNECTOR43\n(Disconnector)\nID: _27cb23c...240f742a",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _27cb23c0-ad7b-4019-8cdf-205e240f742a\nType: Disconnector\nName: DISCONNECTOR43"
+  },
+  {
+    "id": "eq__fdf5cfbe-9bf5-406a-8d04-fafe47afe31d",
+    "label": "BREAKER22\n(Breaker)\nID: _fdf5cfb...47afe31d",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _fdf5cfbe-9bf5-406a-8d04-fafe47afe31d\nType: Breaker\nName: BREAKER22"
+  },
+  {
+    "id": "eq__2791a96c-c66c-44e7-a5dc-8331a8996c76",
+    "label": "DISCONNECTOR44\n(Disconnector)\nID: _2791a96...a8996c76",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _2791a96c-c66c-44e7-a5dc-8331a8996c76\nType: Disconnector\nName: DISCONNECTOR44"
+  },
+  {
+    "id": "eq__0e851b9d-f638-40ff-b77a-b381698dc9a3",
+    "label": "BUSBAR9\n(BusbarSection)\nID: _0e851b9...698dc9a3",
+    "group": "BusbarSection",
+    "color": "#607D8B",
+    "shape": "box",
+    "title": "ID: _0e851b9d-f638-40ff-b77a-b381698dc9a3\nType: BusbarSection\nName: BUSBAR9"
+  },
+  {
+    "id": "eq__c8b06b9b-8876-4fb5-9279-5a396e3db63d",
+    "label": "DISCONNECTOR45\n(Disconnector)\nID: _c8b06b9...6e3db63d",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _c8b06b9b-8876-4fb5-9279-5a396e3db63d\nType: Disconnector\nName: DISCONNECTOR45"
+  },
+  {
+    "id": "eq__47143596-5947-430d-b14b-e00ac796985a",
+    "label": "BREAKER23\n(Breaker)\nID: _4714359...c796985a",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _47143596-5947-430d-b14b-e00ac796985a\nType: Breaker\nName: BREAKER23"
+  },
+  {
+    "id": "eq__cf48defa-93b9-4723-8e41-8dab315ceee0",
+    "label": "DISCONNECTOR46\n(Disconnector)\nID: _cf48def...315ceee0",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _cf48defa-93b9-4723-8e41-8dab315ceee0\nType: Disconnector\nName: DISCONNECTOR46"
+  },
+  {
+    "id": "eq__cb5d0327-ad13-4b40-a74c-3d9888823205",
+    "label": "DISCONNECTOR47\n(Disconnector)\nID: _cb5d032...88823205",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _cb5d0327-ad13-4b40-a74c-3d9888823205\nType: Disconnector\nName: DISCONNECTOR47"
+  },
+  {
+    "id": "eq__d08c1582-0b3e-46ec-9e97-d70c423eefe1",
+    "label": "BREAKER24\n(Breaker)\nID: _d08c158...423eefe1",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _d08c1582-0b3e-46ec-9e97-d70c423eefe1\nType: Breaker\nName: BREAKER24"
+  },
+  {
+    "id": "eq__ba645318-e12c-4f6a-b5e9-5dfe595ae477",
+    "label": "DISCONNECTOR48\n(Disconnector)\nID: _ba64531...595ae477",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _ba645318-e12c-4f6a-b5e9-5dfe595ae477\nType: Disconnector\nName: DISCONNECTOR48"
+  },
+  {
+    "id": "eq__839c01c8-f8b8-45c0-aa2a-ba0a1a4b7504",
+    "label": "BUSBAR10\n(BusbarSection)\nID: _839c01c...1a4b7504",
+    "group": "BusbarSection",
+    "color": "#607D8B",
+    "shape": "box",
+    "title": "ID: _839c01c8-f8b8-45c0-aa2a-ba0a1a4b7504\nType: BusbarSection\nName: BUSBAR10"
+  },
+  {
+    "id": "eq__aecb59fa-9af0-4d30-a865-009c2b35f9cb",
+    "label": "DISCONNECTOR49\n(Disconnector)\nID: _aecb59f...2b35f9cb",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _aecb59fa-9af0-4d30-a865-009c2b35f9cb\nType: Disconnector\nName: DISCONNECTOR49"
+  },
+  {
+    "id": "eq__2b97cb41-b132-4359-ba18-6520d52acd72",
+    "label": "BREAKER25\n(Breaker)\nID: _2b97cb4...d52acd72",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _2b97cb41-b132-4359-ba18-6520d52acd72\nType: Breaker\nName: BREAKER25"
+  },
+  {
+    "id": "eq__0bc3b6a5-091e-4b8f-b9d9-a34d327473d0",
+    "label": "DISCONNECTOR50\n(Disconnector)\nID: _0bc3b6a...327473d0",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _0bc3b6a5-091e-4b8f-b9d9-a34d327473d0\nType: Disconnector\nName: DISCONNECTOR50"
+  },
+  {
+    "id": "eq__e1e0da2d-79f4-4ca9-8ca2-62532a91edef",
+    "label": "DISCONNECTOR51\n(Disconnector)\nID: _e1e0da2...2a91edef",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _e1e0da2d-79f4-4ca9-8ca2-62532a91edef\nType: Disconnector\nName: DISCONNECTOR51"
+  },
+  {
+    "id": "eq__3eae0be8-9a2f-4355-89d6-865b340c2ec9",
+    "label": "BREAKER26\n(Breaker)\nID: _3eae0be...340c2ec9",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _3eae0be8-9a2f-4355-89d6-865b340c2ec9\nType: Breaker\nName: BREAKER26"
+  },
+  {
+    "id": "eq__c5bac804-64da-4b3a-8bdc-4c199a9d39ac",
+    "label": "DISCONNECTOR52\n(Disconnector)\nID: _c5bac80...9a9d39ac",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _c5bac804-64da-4b3a-8bdc-4c199a9d39ac\nType: Disconnector\nName: DISCONNECTOR52"
+  },
+  {
+    "id": "eq__6b7dc761-737d-4452-9d3f-de9e14a7c801",
+    "label": "DISCONNECTOR53\n(Disconnector)\nID: _6b7dc76...14a7c801",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _6b7dc761-737d-4452-9d3f-de9e14a7c801\nType: Disconnector\nName: DISCONNECTOR53"
+  },
+  {
+    "id": "eq__0f02c390-e5bc-4e8f-9936-2d269b8847ad",
+    "label": "BREAKER27\n(Breaker)\nID: _0f02c39...9b8847ad",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _0f02c390-e5bc-4e8f-9936-2d269b8847ad\nType: Breaker\nName: BREAKER27"
+  },
+  {
+    "id": "eq__315a9d60-b7ef-4652-bc3b-2b8c5d334dcf",
+    "label": "DISCONNECTOR54\n(Disconnector)\nID: _315a9d6...5d334dcf",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _315a9d60-b7ef-4652-bc3b-2b8c5d334dcf\nType: Disconnector\nName: DISCONNECTOR54"
+  },
+  {
+    "id": "eq__d9f23c01-d924-4040-ab48-d5c36ccdf1a3",
+    "label": "BUSBAR11\n(BusbarSection)\nID: _d9f23c0...6ccdf1a3",
+    "group": "BusbarSection",
+    "color": "#607D8B",
+    "shape": "box",
+    "title": "ID: _d9f23c01-d924-4040-ab48-d5c36ccdf1a3\nType: BusbarSection\nName: BUSBAR11"
+  },
+  {
+    "id": "eq__35ec1a87-3d57-4274-b9c2-ecb120180fab",
+    "label": "DISCONNECTOR55\n(Disconnector)\nID: _35ec1a8...20180fab",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _35ec1a87-3d57-4274-b9c2-ecb120180fab\nType: Disconnector\nName: DISCONNECTOR55"
+  },
+  {
+    "id": "eq__81ee8901-1cb8-4c51-ae32-d2adc6ad9077",
+    "label": "BREAKER28\n(Breaker)\nID: _81ee890...c6ad9077",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _81ee8901-1cb8-4c51-ae32-d2adc6ad9077\nType: Breaker\nName: BREAKER28"
+  },
+  {
+    "id": "eq__f48344b0-09df-498d-9517-3c51ca3ce8e6",
+    "label": "DISCONNECTOR56\n(Disconnector)\nID: _f48344b...ca3ce8e6",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _f48344b0-09df-498d-9517-3c51ca3ce8e6\nType: Disconnector\nName: DISCONNECTOR56"
+  },
+  {
+    "id": "eq__ddb70bc6-7ec9-4042-9816-b7f5a601064e",
+    "label": "DISCONNECTOR57\n(Disconnector)\nID: _ddb70bc...a601064e",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _ddb70bc6-7ec9-4042-9816-b7f5a601064e\nType: Disconnector\nName: DISCONNECTOR57"
+  },
+  {
+    "id": "eq__575ed362-86e6-4753-a05c-e0015504a9d1",
+    "label": "BREAKER29\n(Breaker)\nID: _575ed36...5504a9d1",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _575ed362-86e6-4753-a05c-e0015504a9d1\nType: Breaker\nName: BREAKER29"
+  },
+  {
+    "id": "eq__9c0bdbb8-034f-4a0e-838e-5cdde5c91e9b",
+    "label": "DISCONNECTOR58\n(Disconnector)\nID: _9c0bdbb...e5c91e9b",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _9c0bdbb8-034f-4a0e-838e-5cdde5c91e9b\nType: Disconnector\nName: DISCONNECTOR58"
+  },
+  {
+    "id": "eq__20a4b1b1-5307-471e-85cb-f2b1e059dd4c",
+    "label": "DISCONNECTOR59\n(Disconnector)\nID: _20a4b1b...e059dd4c",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _20a4b1b1-5307-471e-85cb-f2b1e059dd4c\nType: Disconnector\nName: DISCONNECTOR59"
+  },
+  {
+    "id": "eq__9bde615c-44c1-4a7f-8801-72545a4e6c59",
+    "label": "BREAKER30\n(Breaker)\nID: _9bde615...5a4e6c59",
+    "group": "Breaker",
+    "color": "#F44336",
+    "shape": "box",
+    "title": "ID: _9bde615c-44c1-4a7f-8801-72545a4e6c59\nType: Breaker\nName: BREAKER30"
+  },
+  {
+    "id": "eq__535445e8-b782-49a6-87e7-55946e1bbba1",
+    "label": "DISCONNECTOR60\n(Disconnector)\nID: _535445e...6e1bbba1",
+    "group": "Disconnector",
+    "color": "#E91E63",
+    "shape": "box",
+    "title": "ID: _535445e8-b782-49a6-87e7-55946e1bbba1\nType: Disconnector\nName: DISCONNECTOR60"
+  }
+]);
+        
+        // 边数据
+        var edges = new vis.DataSet([
+  {
+    "from": "eq__1a89e8aa-04e8-4640-adf2-bcb07b18045d",
+    "to": "eq__79341979-e66c-4b08-8053-6d97216e0777",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__1a89e8aa-04e8-4640-adf2-bcb07b18045d",
+    "to": "eq__c6727598-4dae-4226-a542-166766d2f702",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__1a89e8aa-04e8-4640-adf2-bcb07b18045d",
+    "to": "eq__5938ea51-0cfb-4c6c-8d6f-c2bf3254c94a",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__1a89e8aa-04e8-4640-adf2-bcb07b18045d",
+    "to": "eq__c803aa12-a8c7-4491-8163-1a1c6ea60db8",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__1a89e8aa-04e8-4640-adf2-bcb07b18045d",
+    "to": "eq__fe1384c9-f1c1-4026-9f5d-10a3b22208b9",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__1a89e8aa-04e8-4640-adf2-bcb07b18045d",
+    "to": "eq__3de9e1ad-4562-44df-b268-70ed0517e9e7",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__1a89e8aa-04e8-4640-adf2-bcb07b18045d",
+    "to": "eq__b68ac335-9806-4609-812c-1f47f8738bde",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__1a89e8aa-04e8-4640-adf2-bcb07b18045d",
+    "to": "eq__20a4b1b1-5307-471e-85cb-f2b1e059dd4c",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__79341979-e66c-4b08-8053-6d97216e0777",
+    "to": "eq__c6727598-4dae-4226-a542-166766d2f702",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__79341979-e66c-4b08-8053-6d97216e0777",
+    "to": "eq__5938ea51-0cfb-4c6c-8d6f-c2bf3254c94a",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__79341979-e66c-4b08-8053-6d97216e0777",
+    "to": "eq__c803aa12-a8c7-4491-8163-1a1c6ea60db8",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__79341979-e66c-4b08-8053-6d97216e0777",
+    "to": "eq__fe1384c9-f1c1-4026-9f5d-10a3b22208b9",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__79341979-e66c-4b08-8053-6d97216e0777",
+    "to": "eq__3de9e1ad-4562-44df-b268-70ed0517e9e7",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__79341979-e66c-4b08-8053-6d97216e0777",
+    "to": "eq__b68ac335-9806-4609-812c-1f47f8738bde",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__79341979-e66c-4b08-8053-6d97216e0777",
+    "to": "eq__20a4b1b1-5307-471e-85cb-f2b1e059dd4c",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__c6727598-4dae-4226-a542-166766d2f702",
+    "to": "eq__5938ea51-0cfb-4c6c-8d6f-c2bf3254c94a",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__c6727598-4dae-4226-a542-166766d2f702",
+    "to": "eq__c803aa12-a8c7-4491-8163-1a1c6ea60db8",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__c6727598-4dae-4226-a542-166766d2f702",
+    "to": "eq__fe1384c9-f1c1-4026-9f5d-10a3b22208b9",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__c6727598-4dae-4226-a542-166766d2f702",
+    "to": "eq__3de9e1ad-4562-44df-b268-70ed0517e9e7",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__c6727598-4dae-4226-a542-166766d2f702",
+    "to": "eq__b68ac335-9806-4609-812c-1f47f8738bde",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__c6727598-4dae-4226-a542-166766d2f702",
+    "to": "eq__20a4b1b1-5307-471e-85cb-f2b1e059dd4c",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__5938ea51-0cfb-4c6c-8d6f-c2bf3254c94a",
+    "to": "eq__c803aa12-a8c7-4491-8163-1a1c6ea60db8",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__5938ea51-0cfb-4c6c-8d6f-c2bf3254c94a",
+    "to": "eq__fe1384c9-f1c1-4026-9f5d-10a3b22208b9",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__5938ea51-0cfb-4c6c-8d6f-c2bf3254c94a",
+    "to": "eq__3de9e1ad-4562-44df-b268-70ed0517e9e7",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__5938ea51-0cfb-4c6c-8d6f-c2bf3254c94a",
+    "to": "eq__b68ac335-9806-4609-812c-1f47f8738bde",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__5938ea51-0cfb-4c6c-8d6f-c2bf3254c94a",
+    "to": "eq__20a4b1b1-5307-471e-85cb-f2b1e059dd4c",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__c803aa12-a8c7-4491-8163-1a1c6ea60db8",
+    "to": "eq__fe1384c9-f1c1-4026-9f5d-10a3b22208b9",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__c803aa12-a8c7-4491-8163-1a1c6ea60db8",
+    "to": "eq__3de9e1ad-4562-44df-b268-70ed0517e9e7",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__c803aa12-a8c7-4491-8163-1a1c6ea60db8",
+    "to": "eq__b68ac335-9806-4609-812c-1f47f8738bde",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__c803aa12-a8c7-4491-8163-1a1c6ea60db8",
+    "to": "eq__20a4b1b1-5307-471e-85cb-f2b1e059dd4c",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__fe1384c9-f1c1-4026-9f5d-10a3b22208b9",
+    "to": "eq__3de9e1ad-4562-44df-b268-70ed0517e9e7",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__fe1384c9-f1c1-4026-9f5d-10a3b22208b9",
+    "to": "eq__b68ac335-9806-4609-812c-1f47f8738bde",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__fe1384c9-f1c1-4026-9f5d-10a3b22208b9",
+    "to": "eq__20a4b1b1-5307-471e-85cb-f2b1e059dd4c",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__3de9e1ad-4562-44df-b268-70ed0517e9e7",
+    "to": "eq__b68ac335-9806-4609-812c-1f47f8738bde",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__3de9e1ad-4562-44df-b268-70ed0517e9e7",
+    "to": "eq__20a4b1b1-5307-471e-85cb-f2b1e059dd4c",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__b68ac335-9806-4609-812c-1f47f8738bde",
+    "to": "eq__20a4b1b1-5307-471e-85cb-f2b1e059dd4c",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4cea32..."
+  },
+  {
+    "from": "eq__5938ea51-0cfb-4c6c-8d6f-c2bf3254c94a",
+    "to": "eq__5e9f0079-647e-46da-b0ee-f5f24e127602",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _9232947..."
+  },
+  {
+    "from": "eq__4580fb7b-c31b-4b84-ad1d-1ca4d50f4fc5",
+    "to": "eq__5e9f0079-647e-46da-b0ee-f5f24e127602",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _ddc31fd..."
+  },
+  {
+    "from": "eq__4580fb7b-c31b-4b84-ad1d-1ca4d50f4fc5",
+    "to": "eq__1e7f52a9-21d0-4ebe-9a8a-b29281d5bfc9",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _d3de846..."
+  },
+  {
+    "from": "eq__da8e9cec-96f8-4048-b31a-a56f5ef53c31",
+    "to": "eq__3006c97d-d51e-4e7b-92b1-a9a321f585ce",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _9e58583..."
+  },
+  {
+    "from": "eq__da8e9cec-96f8-4048-b31a-a56f5ef53c31",
+    "to": "eq__8fa214d6-5b7f-4d04-8de7-e5609d9f9deb",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _9e58583..."
+  },
+  {
+    "from": "eq__da8e9cec-96f8-4048-b31a-a56f5ef53c31",
+    "to": "eq__27cb23c0-ad7b-4019-8cdf-205e240f742a",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _9e58583..."
+  },
+  {
+    "from": "eq__3006c97d-d51e-4e7b-92b1-a9a321f585ce",
+    "to": "eq__8fa214d6-5b7f-4d04-8de7-e5609d9f9deb",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _9e58583..."
+  },
+  {
+    "from": "eq__3006c97d-d51e-4e7b-92b1-a9a321f585ce",
+    "to": "eq__27cb23c0-ad7b-4019-8cdf-205e240f742a",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _9e58583..."
+  },
+  {
+    "from": "eq__8fa214d6-5b7f-4d04-8de7-e5609d9f9deb",
+    "to": "eq__27cb23c0-ad7b-4019-8cdf-205e240f742a",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _9e58583..."
+  },
+  {
+    "from": "eq__622a9aff-f9d4-49c7-8f29-fd88009c5df0",
+    "to": "eq__3006c97d-d51e-4e7b-92b1-a9a321f585ce",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _67581d4..."
+  },
+  {
+    "from": "eq__622a9aff-f9d4-49c7-8f29-fd88009c5df0",
+    "to": "eq__f5335138-f3b9-400b-abf1-e9b559c887b2",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _2d51a1e..."
+  },
+  {
+    "from": "eq__1e7f52a9-21d0-4ebe-9a8a-b29281d5bfc9",
+    "to": "eq__f5335138-f3b9-400b-abf1-e9b559c887b2",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _e2f8de8..."
+  },
+  {
+    "from": "eq__392ea173-4f8e-48fa-b2a3-5c3721e93196",
+    "to": "eq__7d655d91-394a-4f47-8f83-7f1de3baa056",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _ec8c3b4..."
+  },
+  {
+    "from": "eq__392ea173-4f8e-48fa-b2a3-5c3721e93196",
+    "to": "eq__84a0d591-e69e-407d-991d-54b3c6394d09",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _ec8c3b4..."
+  },
+  {
+    "from": "eq__392ea173-4f8e-48fa-b2a3-5c3721e93196",
+    "to": "eq__2c03a3cf-4890-4092-9fe3-c6d139677882",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _ec8c3b4..."
+  },
+  {
+    "from": "eq__392ea173-4f8e-48fa-b2a3-5c3721e93196",
+    "to": "eq__c7f7f032-1e4d-494a-9352-bad1a3056e3f",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _ec8c3b4..."
+  },
+  {
+    "from": "eq__7d655d91-394a-4f47-8f83-7f1de3baa056",
+    "to": "eq__84a0d591-e69e-407d-991d-54b3c6394d09",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _ec8c3b4..."
+  },
+  {
+    "from": "eq__7d655d91-394a-4f47-8f83-7f1de3baa056",
+    "to": "eq__2c03a3cf-4890-4092-9fe3-c6d139677882",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _ec8c3b4..."
+  },
+  {
+    "from": "eq__7d655d91-394a-4f47-8f83-7f1de3baa056",
+    "to": "eq__c7f7f032-1e4d-494a-9352-bad1a3056e3f",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _ec8c3b4..."
+  },
+  {
+    "from": "eq__84a0d591-e69e-407d-991d-54b3c6394d09",
+    "to": "eq__2c03a3cf-4890-4092-9fe3-c6d139677882",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _ec8c3b4..."
+  },
+  {
+    "from": "eq__84a0d591-e69e-407d-991d-54b3c6394d09",
+    "to": "eq__c7f7f032-1e4d-494a-9352-bad1a3056e3f",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _ec8c3b4..."
+  },
+  {
+    "from": "eq__2c03a3cf-4890-4092-9fe3-c6d139677882",
+    "to": "eq__c7f7f032-1e4d-494a-9352-bad1a3056e3f",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _ec8c3b4..."
+  },
+  {
+    "from": "eq__7d655d91-394a-4f47-8f83-7f1de3baa056",
+    "to": "eq__4c49cfd1-4758-476e-95ce-5cd2c56e3165",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _add7e16..."
+  },
+  {
+    "from": "eq__dcba20ce-b619-471a-8ab0-2371d4d090b0",
+    "to": "eq__4c49cfd1-4758-476e-95ce-5cd2c56e3165",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _08d61cd..."
+  },
+  {
+    "from": "eq__56757c2b-550e-4843-886a-ed193f6eb21e",
+    "to": "eq__dcba20ce-b619-471a-8ab0-2371d4d090b0",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _8adb739..."
+  },
+  {
+    "from": "eq__ba62884d-8800-41a8-9c26-698297d7ebaa",
+    "to": "eq__4171593e-40e0-4937-8c04-2276c3c16d68",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _0f82294..."
+  },
+  {
+    "from": "eq__ba62884d-8800-41a8-9c26-698297d7ebaa",
+    "to": "eq__3a783d1d-1113-414d-ab67-34b139781196",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _0f82294..."
+  },
+  {
+    "from": "eq__ba62884d-8800-41a8-9c26-698297d7ebaa",
+    "to": "eq__062ece1f-ade5-4d20-9c3a-fd8f12d12ec1",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _0f82294..."
+  },
+  {
+    "from": "eq__ba62884d-8800-41a8-9c26-698297d7ebaa",
+    "to": "eq__f184d87b-5565-45ee-89b4-29e8a42d3ad1",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _0f82294..."
+  },
+  {
+    "from": "eq__4171593e-40e0-4937-8c04-2276c3c16d68",
+    "to": "eq__3a783d1d-1113-414d-ab67-34b139781196",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _0f82294..."
+  },
+  {
+    "from": "eq__4171593e-40e0-4937-8c04-2276c3c16d68",
+    "to": "eq__062ece1f-ade5-4d20-9c3a-fd8f12d12ec1",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _0f82294..."
+  },
+  {
+    "from": "eq__4171593e-40e0-4937-8c04-2276c3c16d68",
+    "to": "eq__f184d87b-5565-45ee-89b4-29e8a42d3ad1",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _0f82294..."
+  },
+  {
+    "from": "eq__3a783d1d-1113-414d-ab67-34b139781196",
+    "to": "eq__062ece1f-ade5-4d20-9c3a-fd8f12d12ec1",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _0f82294..."
+  },
+  {
+    "from": "eq__3a783d1d-1113-414d-ab67-34b139781196",
+    "to": "eq__f184d87b-5565-45ee-89b4-29e8a42d3ad1",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _0f82294..."
+  },
+  {
+    "from": "eq__062ece1f-ade5-4d20-9c3a-fd8f12d12ec1",
+    "to": "eq__f184d87b-5565-45ee-89b4-29e8a42d3ad1",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _0f82294..."
+  },
+  {
+    "from": "eq__3a783d1d-1113-414d-ab67-34b139781196",
+    "to": "eq__fbdcf00d-8a07-4c62-9e39-86f459bea2be",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _69e9878..."
+  },
+  {
+    "from": "eq__fbdcf00d-8a07-4c62-9e39-86f459bea2be",
+    "to": "eq__83317cbd-8326-44b8-a9fb-f69b6ba5a1cb",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _528967d..."
+  },
+  {
+    "from": "eq__56757c2b-550e-4843-886a-ed193f6eb21e",
+    "to": "eq__83317cbd-8326-44b8-a9fb-f69b6ba5a1cb",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _1d9f1b8..."
+  },
+  {
+    "from": "eq__fe1384c9-f1c1-4026-9f5d-10a3b22208b9",
+    "to": "eq__2ed632f6-36a3-4937-8d5d-ad105c57c071",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _567fee6..."
+  },
+  {
+    "from": "eq__154f3756-4e07-4f06-9147-ed83de84e265",
+    "to": "eq__2ed632f6-36a3-4937-8d5d-ad105c57c071",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _b15dabd..."
+  },
+  {
+    "from": "eq__154f3756-4e07-4f06-9147-ed83de84e265",
+    "to": "eq__e95a6228-ceac-4f0a-8b52-d35367b364dc",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _5de4867..."
+  },
+  {
+    "from": "eq__9313f8a4-159d-48c8-92f1-36b1d16ee7c9",
+    "to": "eq__faf75564-a154-4528-9428-913e6501a21f",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _cc636ac..."
+  },
+  {
+    "from": "eq__9313f8a4-159d-48c8-92f1-36b1d16ee7c9",
+    "to": "eq__15d6eb77-36d6-48d0-a227-25d29e839517",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _cc636ac..."
+  },
+  {
+    "from": "eq__9313f8a4-159d-48c8-92f1-36b1d16ee7c9",
+    "to": "eq__78f2ae0e-da25-483a-8a71-76f709389894",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _cc636ac..."
+  },
+  {
+    "from": "eq__9313f8a4-159d-48c8-92f1-36b1d16ee7c9",
+    "to": "eq__9dc3bedf-0d30-4a56-ba5c-f2e69d7997ee",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _cc636ac..."
+  },
+  {
+    "from": "eq__faf75564-a154-4528-9428-913e6501a21f",
+    "to": "eq__15d6eb77-36d6-48d0-a227-25d29e839517",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _cc636ac..."
+  },
+  {
+    "from": "eq__faf75564-a154-4528-9428-913e6501a21f",
+    "to": "eq__78f2ae0e-da25-483a-8a71-76f709389894",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _cc636ac..."
+  },
+  {
+    "from": "eq__faf75564-a154-4528-9428-913e6501a21f",
+    "to": "eq__9dc3bedf-0d30-4a56-ba5c-f2e69d7997ee",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _cc636ac..."
+  },
+  {
+    "from": "eq__15d6eb77-36d6-48d0-a227-25d29e839517",
+    "to": "eq__78f2ae0e-da25-483a-8a71-76f709389894",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _cc636ac..."
+  },
+  {
+    "from": "eq__15d6eb77-36d6-48d0-a227-25d29e839517",
+    "to": "eq__9dc3bedf-0d30-4a56-ba5c-f2e69d7997ee",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _cc636ac..."
+  },
+  {
+    "from": "eq__78f2ae0e-da25-483a-8a71-76f709389894",
+    "to": "eq__9dc3bedf-0d30-4a56-ba5c-f2e69d7997ee",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _cc636ac..."
+  },
+  {
+    "from": "eq__15d6eb77-36d6-48d0-a227-25d29e839517",
+    "to": "eq__a9b68255-188c-408d-8362-5f3b0a1e730f",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c099d32..."
+  },
+  {
+    "from": "eq__84970563-073f-4316-a175-060b544640e0",
+    "to": "eq__a9b68255-188c-408d-8362-5f3b0a1e730f",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _955134c..."
+  },
+  {
+    "from": "eq__84970563-073f-4316-a175-060b544640e0",
+    "to": "eq__e95a6228-ceac-4f0a-8b52-d35367b364dc",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _064ae2c..."
+  },
+  {
+    "from": "eq__6b7dc761-737d-4452-9d3f-de9e14a7c801",
+    "to": "eq__cb5d0327-ad13-4b40-a74c-3d9888823205",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4e14a0..."
+  },
+  {
+    "from": "eq__6b7dc761-737d-4452-9d3f-de9e14a7c801",
+    "to": "eq__ea5a6982-018c-4ce6-85f6-78b5ab5dbfc1",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4e14a0..."
+  },
+  {
+    "from": "eq__6b7dc761-737d-4452-9d3f-de9e14a7c801",
+    "to": "eq__b81c76fd-24fb-4888-a52e-5a9d0177df1d",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4e14a0..."
+  },
+  {
+    "from": "eq__6b7dc761-737d-4452-9d3f-de9e14a7c801",
+    "to": "eq__90e1b509-e6d1-4a3b-8dcc-587f8b362bd3",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4e14a0..."
+  },
+  {
+    "from": "eq__6b7dc761-737d-4452-9d3f-de9e14a7c801",
+    "to": "eq__bbbfc5c0-45ee-49fd-9dec-17c90af3f42b",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4e14a0..."
+  },
+  {
+    "from": "eq__cb5d0327-ad13-4b40-a74c-3d9888823205",
+    "to": "eq__ea5a6982-018c-4ce6-85f6-78b5ab5dbfc1",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4e14a0..."
+  },
+  {
+    "from": "eq__cb5d0327-ad13-4b40-a74c-3d9888823205",
+    "to": "eq__b81c76fd-24fb-4888-a52e-5a9d0177df1d",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4e14a0..."
+  },
+  {
+    "from": "eq__cb5d0327-ad13-4b40-a74c-3d9888823205",
+    "to": "eq__90e1b509-e6d1-4a3b-8dcc-587f8b362bd3",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4e14a0..."
+  },
+  {
+    "from": "eq__cb5d0327-ad13-4b40-a74c-3d9888823205",
+    "to": "eq__bbbfc5c0-45ee-49fd-9dec-17c90af3f42b",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4e14a0..."
+  },
+  {
+    "from": "eq__ea5a6982-018c-4ce6-85f6-78b5ab5dbfc1",
+    "to": "eq__b81c76fd-24fb-4888-a52e-5a9d0177df1d",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4e14a0..."
+  },
+  {
+    "from": "eq__ea5a6982-018c-4ce6-85f6-78b5ab5dbfc1",
+    "to": "eq__90e1b509-e6d1-4a3b-8dcc-587f8b362bd3",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4e14a0..."
+  },
+  {
+    "from": "eq__ea5a6982-018c-4ce6-85f6-78b5ab5dbfc1",
+    "to": "eq__bbbfc5c0-45ee-49fd-9dec-17c90af3f42b",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4e14a0..."
+  },
+  {
+    "from": "eq__b81c76fd-24fb-4888-a52e-5a9d0177df1d",
+    "to": "eq__90e1b509-e6d1-4a3b-8dcc-587f8b362bd3",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4e14a0..."
+  },
+  {
+    "from": "eq__b81c76fd-24fb-4888-a52e-5a9d0177df1d",
+    "to": "eq__bbbfc5c0-45ee-49fd-9dec-17c90af3f42b",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4e14a0..."
+  },
+  {
+    "from": "eq__90e1b509-e6d1-4a3b-8dcc-587f8b362bd3",
+    "to": "eq__bbbfc5c0-45ee-49fd-9dec-17c90af3f42b",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c4e14a0..."
+  },
+  {
+    "from": "eq__62156fd8-595d-4ab0-af53-0de3b8056a6e",
+    "to": "eq__ea5a6982-018c-4ce6-85f6-78b5ab5dbfc1",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _e4fa17b..."
+  },
+  {
+    "from": "eq__62156fd8-595d-4ab0-af53-0de3b8056a6e",
+    "to": "eq__f88b1d2b-2f06-44ff-bfe5-8f1156e13092",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _1cf8ec4..."
+  },
+  {
+    "from": "eq__d5d1cc4a-6297-4386-b6ce-16dc26f15feb",
+    "to": "eq__f88b1d2b-2f06-44ff-bfe5-8f1156e13092",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _05c0206..."
+  },
+  {
+    "from": "eq__285ccb1e-a867-4efc-880e-e871c1929376",
+    "to": "eq__faf75564-a154-4528-9428-913e6501a21f",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _86e78ed..."
+  },
+  {
+    "from": "eq__22e27c40-eb38-4f04-aebd-7ef543798211",
+    "to": "eq__285ccb1e-a867-4efc-880e-e871c1929376",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _f2f0151..."
+  },
+  {
+    "from": "eq__22e27c40-eb38-4f04-aebd-7ef543798211",
+    "to": "eq__d5d1cc4a-6297-4386-b6ce-16dc26f15feb",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _1925701..."
+  },
+  {
+    "from": "eq__9313f8a4-159d-48c8-92f1-36b1d16ee7c9",
+    "to": "eq__8e57f735-6869-463e-959e-b517b15a5ec5",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _efdda81..."
+  },
+  {
+    "from": "eq__8e57f735-6869-463e-959e-b517b15a5ec5",
+    "to": "eq__869b6ad5-3975-49ae-81fe-01547a229a25",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _d74ef9c..."
+  },
+  {
+    "from": "eq__efdd7f46-67e6-46e3-9dcd-a3b6f8c613a4",
+    "to": "eq__869b6ad5-3975-49ae-81fe-01547a229a25",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _d09c63d..."
+  },
+  {
+    "from": "eq__8fa214d6-5b7f-4d04-8de7-e5609d9f9deb",
+    "to": "eq__eb33e134-698f-4258-8361-4b5fa4c2f9de",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _ccb7c35..."
+  },
+  {
+    "from": "eq__9e8afc23-52fc-40e6-ab85-3d0328a228f2",
+    "to": "eq__eb33e134-698f-4258-8361-4b5fa4c2f9de",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _9b8c8ee..."
+  },
+  {
+    "from": "eq__efdd7f46-67e6-46e3-9dcd-a3b6f8c613a4",
+    "to": "eq__9e8afc23-52fc-40e6-ab85-3d0328a228f2",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _473b9f4..."
+  },
+  {
+    "from": "eq__90e1b509-e6d1-4a3b-8dcc-587f8b362bd3",
+    "to": "eq__788bb5ff-f36e-406b-b6a6-ea1b7268ba03",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _a2f94df..."
+  },
+  {
+    "from": "eq__788bb5ff-f36e-406b-b6a6-ea1b7268ba03",
+    "to": "eq__ef2f27d9-acde-4aad-a920-d61c98682f4d",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _40bb040..."
+  },
+  {
+    "from": "eq__35df6abe-3087-4c27-a90a-12b5065333f3",
+    "to": "eq__ef2f27d9-acde-4aad-a920-d61c98682f4d",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _d9649b2..."
+  },
+  {
+    "from": "eq__b68ac335-9806-4609-812c-1f47f8738bde",
+    "to": "eq__a5a962a6-2f47-4ef1-960f-e29131bcba36",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _583e0ee..."
+  },
+  {
+    "from": "eq__b0677acc-df2e-4730-9516-fab2403103d0",
+    "to": "eq__a5a962a6-2f47-4ef1-960f-e29131bcba36",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _858bc63..."
+  },
+  {
+    "from": "eq__b0677acc-df2e-4730-9516-fab2403103d0",
+    "to": "eq__35df6abe-3087-4c27-a90a-12b5065333f3",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _cc81766..."
+  },
+  {
+    "from": "eq__f58f46ea-b73b-421e-9fea-a86126a95b10",
+    "to": "eq__b81c76fd-24fb-4888-a52e-5a9d0177df1d",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _2025cf6..."
+  },
+  {
+    "from": "eq__f58f46ea-b73b-421e-9fea-a86126a95b10",
+    "to": "eq__06917aa0-6cc2-4d46-b37b-6ed9fec32ccd",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _289cda9..."
+  },
+  {
+    "from": "eq__06917aa0-6cc2-4d46-b37b-6ed9fec32ccd",
+    "to": "eq__05597934-b248-491e-803a-68ce6290f502",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _b662305..."
+  },
+  {
+    "from": "eq__c217742e-f713-44b7-a0b2-7c78aebc165d",
+    "to": "eq__c6727598-4dae-4226-a542-166766d2f702",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _189fdb2..."
+  },
+  {
+    "from": "eq__6f28743a-c690-4569-b229-977566414a16",
+    "to": "eq__c217742e-f713-44b7-a0b2-7c78aebc165d",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _364f4b8..."
+  },
+  {
+    "from": "eq__6f28743a-c690-4569-b229-977566414a16",
+    "to": "eq__05597934-b248-491e-803a-68ce6290f502",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _edfce3c..."
+  },
+  {
+    "from": "eq__79341979-e66c-4b08-8053-6d97216e0777",
+    "to": "eq__a772f653-51f9-498c-afc9-c37b2a49cf32",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _18e79ca..."
+  },
+  {
+    "from": "eq__74534b01-b13b-49a2-b0d7-d0feb1348ef5",
+    "to": "eq__a772f653-51f9-498c-afc9-c37b2a49cf32",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _08fb7cc..."
+  },
+  {
+    "from": "eq__ceb5d06a-a7ff-4102-a620-7f3ea5fb4a51",
+    "to": "eq__74534b01-b13b-49a2-b0d7-d0feb1348ef5",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _959b2f0..."
+  },
+  {
+    "from": "eq__c1e02075-4fdf-41e1-b5e4-925bb2396011",
+    "to": "eq__c7f7f032-1e4d-494a-9352-bad1a3056e3f",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c2000fc..."
+  },
+  {
+    "from": "eq__c1e02075-4fdf-41e1-b5e4-925bb2396011",
+    "to": "eq__2ec6cb16-7516-46f9-8cd8-2a52eea85bb5",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _aa1c132..."
+  },
+  {
+    "from": "eq__ceb5d06a-a7ff-4102-a620-7f3ea5fb4a51",
+    "to": "eq__2ec6cb16-7516-46f9-8cd8-2a52eea85bb5",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _29c4f11..."
+  },
+  {
+    "from": "eq__6557ecb5-b9a7-4089-aa70-58d4d11f503b",
+    "to": "eq__c803aa12-a8c7-4491-8163-1a1c6ea60db8",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _41c16bf..."
+  },
+  {
+    "from": "eq__6557ecb5-b9a7-4089-aa70-58d4d11f503b",
+    "to": "eq__ac85d2fb-2417-4a86-9c63-d389e6ffae47",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _ac6c435..."
+  },
+  {
+    "from": "eq__6c89588b-3df5-4120-88e5-26164afb43e9",
+    "to": "eq__ac85d2fb-2417-4a86-9c63-d389e6ffae47",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _71f091e..."
+  },
+  {
+    "from": "eq__2c03a3cf-4890-4092-9fe3-c6d139677882",
+    "to": "eq__d0119330-220f-4ed3-ad3c-f893ad0534fb",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _463aee4..."
+  },
+  {
+    "from": "eq__64b4c3d3-0116-4477-af5f-76fe482a4347",
+    "to": "eq__d0119330-220f-4ed3-ad3c-f893ad0534fb",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _461cffe..."
+  },
+  {
+    "from": "eq__6c89588b-3df5-4120-88e5-26164afb43e9",
+    "to": "eq__64b4c3d3-0116-4477-af5f-76fe482a4347",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c575585..."
+  },
+  {
+    "from": "eq__d6665f59-851b-4183-81b0-59c53e1baa6a",
+    "to": "eq__9dc3bedf-0d30-4a56-ba5c-f2e69d7997ee",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _5781553..."
+  },
+  {
+    "from": "eq__d6665f59-851b-4183-81b0-59c53e1baa6a",
+    "to": "eq__b8924fbf-6513-4385-b032-21045c0a5b8f",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _1793334..."
+  },
+  {
+    "from": "eq__b8924fbf-6513-4385-b032-21045c0a5b8f",
+    "to": "eq__f1e72854-ec35-46e9-b614-27db354e8dbb",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _74fb7ac..."
+  },
+  {
+    "from": "eq__2970a2b7-b840-4e9c-b405-0cb854cd2318",
+    "to": "eq__25781dc3-bf27-4b5d-b920-e71f246bcde6",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _a662bda..."
+  },
+  {
+    "from": "eq__2970a2b7-b840-4e9c-b405-0cb854cd2318",
+    "to": "eq__cd8813aa-3213-4d9a-994d-4a4513e458b4",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _a662bda..."
+  },
+  {
+    "from": "eq__25781dc3-bf27-4b5d-b920-e71f246bcde6",
+    "to": "eq__cd8813aa-3213-4d9a-994d-4a4513e458b4",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _a662bda..."
+  },
+  {
+    "from": "eq__1287758d-606d-44c9-9e93-2f465ebf54b7",
+    "to": "eq__cd8813aa-3213-4d9a-994d-4a4513e458b4",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _a9d648c..."
+  },
+  {
+    "from": "eq__1287758d-606d-44c9-9e93-2f465ebf54b7",
+    "to": "eq__8e56ead3-f4d3-4cd9-a34f-c7340ff7384d",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c8dfe7f..."
+  },
+  {
+    "from": "eq__8e56ead3-f4d3-4cd9-a34f-c7340ff7384d",
+    "to": "eq__f1e72854-ec35-46e9-b614-27db354e8dbb",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _2ad1f76..."
+  },
+  {
+    "from": "eq__ca67be42-750e-4ebf-bfaa-24d446e59a22",
+    "to": "eq__b7e79b65-8d3e-4ee9-bf05-12bf2250b12d",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _7dbc4e4..."
+  },
+  {
+    "from": "eq__ca67be42-750e-4ebf-bfaa-24d446e59a22",
+    "to": "eq__a43ab51f-ba09-4224-8437-63a9ab30ea50",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _7dbc4e4..."
+  },
+  {
+    "from": "eq__b7e79b65-8d3e-4ee9-bf05-12bf2250b12d",
+    "to": "eq__a43ab51f-ba09-4224-8437-63a9ab30ea50",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _7dbc4e4..."
+  },
+  {
+    "from": "eq__b7e79b65-8d3e-4ee9-bf05-12bf2250b12d",
+    "to": "eq__052682ba-a4e5-41d5-9728-0fa4e2e01011",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _6b3b225..."
+  },
+  {
+    "from": "eq__2af10fbd-4763-4940-b11d-00dcd7627016",
+    "to": "eq__052682ba-a4e5-41d5-9728-0fa4e2e01011",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _3155f5d..."
+  },
+  {
+    "from": "eq__2af10fbd-4763-4940-b11d-00dcd7627016",
+    "to": "eq__813365c3-5be7-4ef0-a0a7-abd1ae6dc174",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _7f10271..."
+  },
+  {
+    "from": "eq__fdf5cfbe-9bf5-406a-8d04-fafe47afe31d",
+    "to": "eq__27cb23c0-ad7b-4019-8cdf-205e240f742a",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _eaa1702..."
+  },
+  {
+    "from": "eq__2791a96c-c66c-44e7-a5dc-8331a8996c76",
+    "to": "eq__fdf5cfbe-9bf5-406a-8d04-fafe47afe31d",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _47e5b82..."
+  },
+  {
+    "from": "eq__2791a96c-c66c-44e7-a5dc-8331a8996c76",
+    "to": "eq__813365c3-5be7-4ef0-a0a7-abd1ae6dc174",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _de0ba15..."
+  },
+  {
+    "from": "eq__0e851b9d-f638-40ff-b77a-b381698dc9a3",
+    "to": "eq__c8b06b9b-8876-4fb5-9279-5a396e3db63d",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _4506d63..."
+  },
+  {
+    "from": "eq__c8b06b9b-8876-4fb5-9279-5a396e3db63d",
+    "to": "eq__47143596-5947-430d-b14b-e00ac796985a",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _ba946d5..."
+  },
+  {
+    "from": "eq__cf48defa-93b9-4723-8e41-8dab315ceee0",
+    "to": "eq__47143596-5947-430d-b14b-e00ac796985a",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _2e7c2f6..."
+  },
+  {
+    "from": "eq__411b5401-0a43-404a-acb4-05c3d7d0c95c",
+    "to": "eq__cf48defa-93b9-4723-8e41-8dab315ceee0",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _0ded970..."
+  },
+  {
+    "from": "eq__d08c1582-0b3e-46ec-9e97-d70c423eefe1",
+    "to": "eq__cb5d0327-ad13-4b40-a74c-3d9888823205",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _c687935..."
+  },
+  {
+    "from": "eq__ba645318-e12c-4f6a-b5e9-5dfe595ae477",
+    "to": "eq__d08c1582-0b3e-46ec-9e97-d70c423eefe1",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _cd4cf95..."
+  },
+  {
+    "from": "eq__ba645318-e12c-4f6a-b5e9-5dfe595ae477",
+    "to": "eq__411b5401-0a43-404a-acb4-05c3d7d0c95c",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _ccf6d0d..."
+  },
+  {
+    "from": "eq__089c1945-4101-487f-a557-66c013b748f6",
+    "to": "eq__ddb70bc6-7ec9-4042-9816-b7f5a601064e",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _4e34639..."
+  },
+  {
+    "from": "eq__089c1945-4101-487f-a557-66c013b748f6",
+    "to": "eq__839c01c8-f8b8-45c0-aa2a-ba0a1a4b7504",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _4e34639..."
+  },
+  {
+    "from": "eq__089c1945-4101-487f-a557-66c013b748f6",
+    "to": "eq__e1e0da2d-79f4-4ca9-8ca2-62532a91edef",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _4e34639..."
+  },
+  {
+    "from": "eq__089c1945-4101-487f-a557-66c013b748f6",
+    "to": "eq__aecb59fa-9af0-4d30-a865-009c2b35f9cb",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _4e34639..."
+  },
+  {
+    "from": "eq__ddb70bc6-7ec9-4042-9816-b7f5a601064e",
+    "to": "eq__839c01c8-f8b8-45c0-aa2a-ba0a1a4b7504",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _4e34639..."
+  },
+  {
+    "from": "eq__ddb70bc6-7ec9-4042-9816-b7f5a601064e",
+    "to": "eq__e1e0da2d-79f4-4ca9-8ca2-62532a91edef",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _4e34639..."
+  },
+  {
+    "from": "eq__ddb70bc6-7ec9-4042-9816-b7f5a601064e",
+    "to": "eq__aecb59fa-9af0-4d30-a865-009c2b35f9cb",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _4e34639..."
+  },
+  {
+    "from": "eq__839c01c8-f8b8-45c0-aa2a-ba0a1a4b7504",
+    "to": "eq__e1e0da2d-79f4-4ca9-8ca2-62532a91edef",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _4e34639..."
+  },
+  {
+    "from": "eq__839c01c8-f8b8-45c0-aa2a-ba0a1a4b7504",
+    "to": "eq__aecb59fa-9af0-4d30-a865-009c2b35f9cb",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _4e34639..."
+  },
+  {
+    "from": "eq__e1e0da2d-79f4-4ca9-8ca2-62532a91edef",
+    "to": "eq__aecb59fa-9af0-4d30-a865-009c2b35f9cb",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _4e34639..."
+  },
+  {
+    "from": "eq__2b97cb41-b132-4359-ba18-6520d52acd72",
+    "to": "eq__aecb59fa-9af0-4d30-a865-009c2b35f9cb",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _767d214..."
+  },
+  {
+    "from": "eq__2b97cb41-b132-4359-ba18-6520d52acd72",
+    "to": "eq__0bc3b6a5-091e-4b8f-b9d9-a34d327473d0",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _7d8eae2..."
+  },
+  {
+    "from": "eq__0bc3b6a5-091e-4b8f-b9d9-a34d327473d0",
+    "to": "eq__411b5401-0a43-404a-acb4-05c3d7d0c95c",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _bddd701..."
+  },
+  {
+    "from": "eq__3eae0be8-9a2f-4355-89d6-865b340c2ec9",
+    "to": "eq__e1e0da2d-79f4-4ca9-8ca2-62532a91edef",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _20c8c63..."
+  },
+  {
+    "from": "eq__3eae0be8-9a2f-4355-89d6-865b340c2ec9",
+    "to": "eq__c5bac804-64da-4b3a-8bdc-4c199a9d39ac",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _e68b682..."
+  },
+  {
+    "from": "eq__c5bac804-64da-4b3a-8bdc-4c199a9d39ac",
+    "to": "eq__5d38b7ed-73fd-405a-9cdb-78425e003773",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _f1fdcc7..."
+  },
+  {
+    "from": "eq__6b7dc761-737d-4452-9d3f-de9e14a7c801",
+    "to": "eq__0f02c390-e5bc-4e8f-9936-2d269b8847ad",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _7b5a5ef..."
+  },
+  {
+    "from": "eq__0f02c390-e5bc-4e8f-9936-2d269b8847ad",
+    "to": "eq__315a9d60-b7ef-4652-bc3b-2b8c5d334dcf",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _bf1b9dd..."
+  },
+  {
+    "from": "eq__315a9d60-b7ef-4652-bc3b-2b8c5d334dcf",
+    "to": "eq__5d38b7ed-73fd-405a-9cdb-78425e003773",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _59c6d51..."
+  },
+  {
+    "from": "eq__35ec1a87-3d57-4274-b9c2-ecb120180fab",
+    "to": "eq__d9f23c01-d924-4040-ab48-d5c36ccdf1a3",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _9e981be..."
+  },
+  {
+    "from": "eq__81ee8901-1cb8-4c51-ae32-d2adc6ad9077",
+    "to": "eq__35ec1a87-3d57-4274-b9c2-ecb120180fab",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _17ccac3..."
+  },
+  {
+    "from": "eq__81ee8901-1cb8-4c51-ae32-d2adc6ad9077",
+    "to": "eq__f48344b0-09df-498d-9517-3c51ca3ce8e6",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _9e865f2..."
+  },
+  {
+    "from": "eq__f48344b0-09df-498d-9517-3c51ca3ce8e6",
+    "to": "eq__5d38b7ed-73fd-405a-9cdb-78425e003773",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _0ccf291..."
+  },
+  {
+    "from": "eq__ddb70bc6-7ec9-4042-9816-b7f5a601064e",
+    "to": "eq__575ed362-86e6-4753-a05c-e0015504a9d1",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _24fea3e..."
+  },
+  {
+    "from": "eq__9c0bdbb8-034f-4a0e-838e-5cdde5c91e9b",
+    "to": "eq__575ed362-86e6-4753-a05c-e0015504a9d1",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _28c3b78..."
+  },
+  {
+    "from": "eq__5150a037-e241-421f-98b2-fe60e5c90303",
+    "to": "eq__9c0bdbb8-034f-4a0e-838e-5cdde5c91e9b",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _a60c40a..."
+  },
+  {
+    "from": "eq__20a4b1b1-5307-471e-85cb-f2b1e059dd4c",
+    "to": "eq__9bde615c-44c1-4a7f-8801-72545a4e6c59",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _87c3362..."
+  },
+  {
+    "from": "eq__535445e8-b782-49a6-87e7-55946e1bbba1",
+    "to": "eq__9bde615c-44c1-4a7f-8801-72545a4e6c59",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _0a5ec60..."
+  },
+  {
+    "from": "eq__535445e8-b782-49a6-87e7-55946e1bbba1",
+    "to": "eq__f32baf36-7ea3-4b6a-9452-71e7f18779f8",
+    "arrows": "to",
+    "color": {
+      "color": "#999"
+    },
+    "title": "Via ConnectivityNode: _8a5d618..."
+  }
+]);
+        
+        // 网络配置
+        var options = {
+            nodes: {
+                borderWidth: 2,
+                shadow: true,
+                font: {
+                    size: 12,
+                    face: 'Arial'
+                }
+            },
+            edges: {
+                width: 2,
+                smooth: {
+                    type: 'continuous',
+                    roundness: 0.5
+                },
+                arrows: {
+                    to: {
+                        enabled: true,
+                        scaleFactor: 0.5
+                    }
+                }
+            },
+            physics: {
+                enabled: true,
+                stabilization: {
+                    iterations: 200
+                },
+                barnesHut: {
+                    gravitationalConstant: -2000,
+                    centralGravity: 0.3,
+                    springLength: 200,
+                    springConstant: 0.04,
+                    damping: 0.09
+                }
+            },
+            interaction: {
+                hover: true,
+                tooltipDelay: 100,
+                zoomView: true,
+                dragView: true
+            }
+        };
+        
+        // 创建物理设备网络
+        var container = document.getElementById('network');
+        var networkData = {
+            nodes: nodes,
+            edges: edges
+        };
+        var network = new vis.Network(container, networkData, options);
+        
+        // 添加事件监听
+        network.on("click", function (params) {
+            if (params.nodes.length > 0) {
+                console.log("选中节点:", params.nodes[0]);
+            }
+        });
+        
+        
+        // 创建拓扑网络
+        var topologyNodes = new vis.DataSet([
+  {
+    "id": "topo__adee76cd-b2b9-48ac-8fd4-0d205a435f59",
+    "label": "1\n(Topo)",
+    "group": "TopologicalNode",
+    "color": "#FF6B6B",
+    "shape": "ellipse",
+    "title": "TopologicalNode: 1\nID: _adee76cd-b2b9-48ac-8fd4-0d205a435f59\nConnectivityNodes: 10"
+  },
+  {
+    "id": "topo__87c0d153-e308-4b2b-92a4-4fad53ab1ff9",
+    "label": "8\n(Topo)",
+    "group": "TopologicalNode",
+    "color": "#FF6B6B",
+    "shape": "ellipse",
+    "title": "TopologicalNode: 8\nID: _87c0d153-e308-4b2b-92a4-4fad53ab1ff9\nConnectivityNodes: 4"
+  },
+  {
+    "id": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "label": "2\n(Topo)",
+    "group": "TopologicalNode",
+    "color": "#FF6B6B",
+    "shape": "ellipse",
+    "title": "TopologicalNode: 2\nID: _b3d3b4ad-02af-4490-8748-70f6c9a23734\nConnectivityNodes: 16"
+  },
+  {
+    "id": "topo__c7eda3d2-e92d-4935-8166-5e045d3de045",
+    "label": "HG2\n(Topo)",
+    "group": "TopologicalNode",
+    "color": "#FF6B6B",
+    "shape": "ellipse",
+    "title": "TopologicalNode: HG2\nID: _c7eda3d2-e92d-4935-8166-5e045d3de045\nConnectivityNodes: 4"
+  },
+  {
+    "id": "topo__7f5515b2-ca6b-45af-93ee-f196686f0c66",
+    "label": "HG1\n(Topo)",
+    "group": "TopologicalNode",
+    "color": "#FF6B6B",
+    "shape": "ellipse",
+    "title": "TopologicalNode: HG1\nID: _7f5515b2-ca6b-45af-93ee-f196686f0c66\nConnectivityNodes: 4"
+  },
+  {
+    "id": "topo__c0adab49-d445-4609-a1a3-ebe4ef297cc8",
+    "label": "4\n(Topo)",
+    "group": "TopologicalNode",
+    "color": "#FF6B6B",
+    "shape": "ellipse",
+    "title": "TopologicalNode: 4\nID: _c0adab49-d445-4609-a1a3-ebe4ef297cc8\nConnectivityNodes: 10"
+  },
+  {
+    "id": "topo__03163ede-7eec-457f-8641-365982227d7c",
+    "label": "H\n(Topo)",
+    "group": "TopologicalNode",
+    "color": "#FF6B6B",
+    "shape": "ellipse",
+    "title": "TopologicalNode: H\nID: _03163ede-7eec-457f-8641-365982227d7c\nConnectivityNodes: 4"
+  },
+  {
+    "id": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "label": "3\n(Topo)",
+    "group": "TopologicalNode",
+    "color": "#FF6B6B",
+    "shape": "ellipse",
+    "title": "TopologicalNode: 3\nID: _c8726716-e182-4373-b83e-8f60070078cb\nConnectivityNodes: 13"
+  },
+  {
+    "id": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "label": "5\n(Topo)",
+    "group": "TopologicalNode",
+    "color": "#FF6B6B",
+    "shape": "ellipse",
+    "title": "TopologicalNode: 5\nID: _37edd845-456f-4c3e-98d5-19af0c1cef1e\nConnectivityNodes: 22"
+  },
+  {
+    "id": "topo__764e0b8a-f2af-4092-b6aa-b4a19e55db98",
+    "label": "6\n(Topo)",
+    "group": "TopologicalNode",
+    "color": "#FF6B6B",
+    "shape": "ellipse",
+    "title": "TopologicalNode: 6\nID: _764e0b8a-f2af-4092-b6aa-b4a19e55db98\nConnectivityNodes: 10"
+  },
+  {
+    "id": "topo__cd84fa40-ef63-422d-8ee0-d0a0f806719e",
+    "label": "7\n(Topo)",
+    "group": "TopologicalNode",
+    "color": "#FF6B6B",
+    "shape": "ellipse",
+    "title": "TopologicalNode: 7\nID: _cd84fa40-ef63-422d-8ee0-d0a0f806719e\nConnectivityNodes: 4"
+  },
+  {
+    "id": "conn__567fee6b-56e6-4cee-b2a3-28098764bdcb",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _567fee6b-56e6-4cee-b2a3-28098764bdcb\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__1d9f1b8a-8d53-440a-b97d-71772e193e9f",
+    "label": "ACLineSegment\n+1",
+    "group": "ConnectivityNode",
+    "color": "#4CAF50",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _1d9f1b8a-8d53-440a-b97d-71772e193e9f\n设备类型: ACLineSegment, Disconnector\n映射到: TopologicalNode 7"
+  },
+  {
+    "id": "conn__528967db-59db-4208-b580-f184fe9d32c1",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _528967db-59db-4208-b580-f184fe9d32c1\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 7"
+  },
+  {
+    "id": "conn__69e9878c-fce1-4ce3-8535-0c4337e9fd0a",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _69e9878c-fce1-4ce3-8535-0c4337e9fd0a\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 7"
+  },
+  {
+    "id": "conn__0f82294a-5cb0-4395-b79a-514c7de478bf",
+    "label": "AsynchronousMachine\n+2",
+    "group": "ConnectivityNode",
+    "color": "#FF9800",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _0f82294a-5cb0-4395-b79a-514c7de478bf\n设备类型: AsynchronousMachine, BusbarSection, Disconnector\n映射到: TopologicalNode 7"
+  },
+  {
+    "id": "conn__8adb739f-8939-4e87-8d3e-c958aa49c187",
+    "label": "ACLineSegment\n+1",
+    "group": "ConnectivityNode",
+    "color": "#4CAF50",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _8adb739f-8939-4e87-8d3e-c958aa49c187\n设备类型: ACLineSegment, Disconnector\n映射到: TopologicalNode 6"
+  },
+  {
+    "id": "conn__08d61cd0-994d-4ff9-89fe-3cd6ee25b71c",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _08d61cd0-994d-4ff9-89fe-3cd6ee25b71c\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 6"
+  },
+  {
+    "id": "conn__add7e168-c993-4dfa-b58e-7da15280f6f9",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _add7e168-c993-4dfa-b58e-7da15280f6f9\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 6"
+  },
+  {
+    "id": "conn__ec8c3b42-d70c-41d6-89f4-f2df958817c8",
+    "label": "SynchronousMachine\n+2",
+    "group": "ConnectivityNode",
+    "color": "#2196F3",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _ec8c3b42-d70c-41d6-89f4-f2df958817c8\n设备类型: SynchronousMachine, BusbarSection, Disconnector\n映射到: TopologicalNode 6"
+  },
+  {
+    "id": "conn__e2f8de8c-3191-4676-9ee7-f920e46f9085",
+    "label": "ACLineSegment\n+1",
+    "group": "ConnectivityNode",
+    "color": "#4CAF50",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _e2f8de8c-3191-4676-9ee7-f920e46f9085\n设备类型: ACLineSegment, Disconnector\n映射到: TopologicalNode 4"
+  },
+  {
+    "id": "conn__2d51a1ee-8a92-4c14-8f13-586427c86626",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _2d51a1ee-8a92-4c14-8f13-586427c86626\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 4"
+  },
+  {
+    "id": "conn__67581d4c-d6b7-4679-a655-33c9cef2cb1b",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _67581d4c-d6b7-4679-a655-33c9cef2cb1b\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 4"
+  },
+  {
+    "id": "conn__9e585839-b83e-4f53-95f7-2fe60dea9e67",
+    "label": "BusbarSection\n+1",
+    "group": "ConnectivityNode",
+    "color": "#607D8B",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _9e585839-b83e-4f53-95f7-2fe60dea9e67\n设备类型: BusbarSection, Disconnector\n映射到: TopologicalNode 4"
+  },
+  {
+    "id": "conn__d3de846d-5271-465e-8558-3e736fa120c4",
+    "label": "ACLineSegment\n+1",
+    "group": "ConnectivityNode",
+    "color": "#4CAF50",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _d3de846d-5271-465e-8558-3e736fa120c4\n设备类型: ACLineSegment, Disconnector\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__ddc31fd5-e9be-481b-a426-f3970c0b51e2",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _ddc31fd5-e9be-481b-a426-f3970c0b51e2\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__9232947a-f81f-472a-ac61-fa1b3f22b740",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _9232947a-f81f-472a-ac61-fa1b3f22b740\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__c4cea32b-2ea1-4be3-9040-2a29cf7a48f1",
+    "label": "ExternalNetworkInjection\n+2",
+    "group": "ConnectivityNode",
+    "color": "#795548",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _c4cea32b-2ea1-4be3-9040-2a29cf7a48f1\n设备类型: ExternalNetworkInjection, BusbarSection, Disconnector\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__b15dabdc-4466-4ce6-a546-4b3579a079f8",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _b15dabdc-4466-4ce6-a546-4b3579a079f8\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__5de48674-41f7-4a17-8055-320eab5b638e",
+    "label": "ACLineSegment\n+1",
+    "group": "ConnectivityNode",
+    "color": "#4CAF50",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _5de48674-41f7-4a17-8055-320eab5b638e\n设备类型: ACLineSegment, Disconnector\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__cc636acd-3f39-4641-829e-dc401eb03569",
+    "label": "BusbarSection\n+1",
+    "group": "ConnectivityNode",
+    "color": "#607D8B",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _cc636acd-3f39-4641-829e-dc401eb03569\n设备类型: BusbarSection, Disconnector\n映射到: TopologicalNode 3"
+  },
+  {
+    "id": "conn__c099d321-32a7-4cf9-8680-00d2f7d5eabf",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _c099d321-32a7-4cf9-8680-00d2f7d5eabf\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 3"
+  },
+  {
+    "id": "conn__955134c9-51cb-4e7c-a960-587c16111331",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _955134c9-51cb-4e7c-a960-587c16111331\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 3"
+  },
+  {
+    "id": "conn__064ae2ca-de5b-41a6-a3a4-86ddd1136880",
+    "label": "ACLineSegment\n+1",
+    "group": "ConnectivityNode",
+    "color": "#4CAF50",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _064ae2ca-de5b-41a6-a3a4-86ddd1136880\n设备类型: ACLineSegment, Disconnector\n映射到: TopologicalNode 3"
+  },
+  {
+    "id": "conn__c4e14a0e-16c4-4b46-8d2d-b45ff7585057",
+    "label": "BusbarSection\n+1",
+    "group": "ConnectivityNode",
+    "color": "#607D8B",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _c4e14a0e-16c4-4b46-8d2d-b45ff7585057\n设备类型: BusbarSection, Disconnector\n映射到: TopologicalNode 2"
+  },
+  {
+    "id": "conn__e4fa17b2-d2a2-4a57-a74e-a382c8092187",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _e4fa17b2-d2a2-4a57-a74e-a382c8092187\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 2"
+  },
+  {
+    "id": "conn__1cf8ec46-dde1-454e-9e98-38aeb059a1c5",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _1cf8ec46-dde1-454e-9e98-38aeb059a1c5\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 2"
+  },
+  {
+    "id": "conn__05c02066-7ded-48d7-b787-da1d2e77f81c",
+    "label": "ACLineSegment\n+1",
+    "group": "ConnectivityNode",
+    "color": "#4CAF50",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _05c02066-7ded-48d7-b787-da1d2e77f81c\n设备类型: ACLineSegment, Disconnector\n映射到: TopologicalNode 2"
+  },
+  {
+    "id": "conn__86e78ed5-cbc9-4c9a-b929-da282b4f6f72",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _86e78ed5-cbc9-4c9a-b929-da282b4f6f72\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 3"
+  },
+  {
+    "id": "conn__f2f0151f-d02a-4ff6-bf16-b8fd2f7738f7",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _f2f0151f-d02a-4ff6-bf16-b8fd2f7738f7\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 3"
+  },
+  {
+    "id": "conn__1925701d-9d85-4f19-86e4-cb7a75453f59",
+    "label": "ACLineSegment\n+1",
+    "group": "ConnectivityNode",
+    "color": "#4CAF50",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _1925701d-9d85-4f19-86e4-cb7a75453f59\n设备类型: ACLineSegment, Disconnector\n映射到: TopologicalNode 3"
+  },
+  {
+    "id": "conn__efdda81c-b0f4-4be2-85fb-45c6be439789",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _efdda81c-b0f4-4be2-85fb-45c6be439789\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 3"
+  },
+  {
+    "id": "conn__d74ef9c4-2df3-4ee6-a3b0-47de684c6852",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _d74ef9c4-2df3-4ee6-a3b0-47de684c6852\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 3"
+  },
+  {
+    "id": "conn__d09c63da-d5f4-4d89-a757-c7426a4b81d2",
+    "label": "ACLineSegment\n+1",
+    "group": "ConnectivityNode",
+    "color": "#4CAF50",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _d09c63da-d5f4-4d89-a757-c7426a4b81d2\n设备类型: ACLineSegment, Disconnector\n映射到: TopologicalNode 3"
+  },
+  {
+    "id": "conn__ccb7c358-3422-42b1-808b-b46c0201fdd7",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _ccb7c358-3422-42b1-808b-b46c0201fdd7\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 4"
+  },
+  {
+    "id": "conn__9b8c8eea-fa50-4e84-96eb-cfc03a3fc5b6",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _9b8c8eea-fa50-4e84-96eb-cfc03a3fc5b6\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 4"
+  },
+  {
+    "id": "conn__473b9f45-3071-4fef-a90b-43a8c4eddeae",
+    "label": "ACLineSegment\n+1",
+    "group": "ConnectivityNode",
+    "color": "#4CAF50",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _473b9f45-3071-4fef-a90b-43a8c4eddeae\n设备类型: ACLineSegment, Disconnector\n映射到: TopologicalNode 4"
+  },
+  {
+    "id": "conn__a2f94dfc-c3c3-4dbf-95b8-8435ca5eaf74",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _a2f94dfc-c3c3-4dbf-95b8-8435ca5eaf74\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 2"
+  },
+  {
+    "id": "conn__40bb040b-2375-471e-84b5-b8f177e897d7",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _40bb040b-2375-471e-84b5-b8f177e897d7\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 2"
+  },
+  {
+    "id": "conn__d9649b2e-0a9c-424e-b3b2-31dbd41bee4f",
+    "label": "ACLineSegment\n+1",
+    "group": "ConnectivityNode",
+    "color": "#4CAF50",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _d9649b2e-0a9c-424e-b3b2-31dbd41bee4f\n设备类型: ACLineSegment, Disconnector\n映射到: TopologicalNode 2"
+  },
+  {
+    "id": "conn__583e0eed-a939-4d54-bebe-0d133bdf3c42",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _583e0eed-a939-4d54-bebe-0d133bdf3c42\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__858bc635-8899-4f15-aacd-7ed65ed24696",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _858bc635-8899-4f15-aacd-7ed65ed24696\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__cc81766a-a254-432f-b9a2-e22225f529f7",
+    "label": "ACLineSegment\n+1",
+    "group": "ConnectivityNode",
+    "color": "#4CAF50",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _cc81766a-a254-432f-b9a2-e22225f529f7\n设备类型: ACLineSegment, Disconnector\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__2025cf6e-0135-4085-ac63-3d232ea808cf",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _2025cf6e-0135-4085-ac63-3d232ea808cf\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 2"
+  },
+  {
+    "id": "conn__289cda9a-53df-441b-a05a-fa90cdd44d94",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _289cda9a-53df-441b-a05a-fa90cdd44d94\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 2"
+  },
+  {
+    "id": "conn__b662305d-ac49-4c92-8a1d-ea3036616328",
+    "label": "ACLineSegment\n+1",
+    "group": "ConnectivityNode",
+    "color": "#4CAF50",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _b662305d-ac49-4c92-8a1d-ea3036616328\n设备类型: ACLineSegment, Disconnector\n映射到: TopologicalNode 2"
+  },
+  {
+    "id": "conn__189fdb29-586a-4bda-a2d0-ce4a1e11a892",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _189fdb29-586a-4bda-a2d0-ce4a1e11a892\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__364f4b8f-8a34-477a-8b25-fd3a8666ae59",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _364f4b8f-8a34-477a-8b25-fd3a8666ae59\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__edfce3cd-e2e1-49eb-9660-7fe920b96c57",
+    "label": "ACLineSegment\n+1",
+    "group": "ConnectivityNode",
+    "color": "#4CAF50",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _edfce3cd-e2e1-49eb-9660-7fe920b96c57\n设备类型: ACLineSegment, Disconnector\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__18e79ca1-d405-4df2-baab-056c46c503d9",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _18e79ca1-d405-4df2-baab-056c46c503d9\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__08fb7cc1-82f4-4b13-b3ed-a46da751fd17",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _08fb7cc1-82f4-4b13-b3ed-a46da751fd17\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__959b2f06-3e1d-454c-b756-7ec0271f9ff6",
+    "label": "PowerTransformer\n+1",
+    "group": "ConnectivityNode",
+    "color": "#9C27B0",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _959b2f06-3e1d-454c-b756-7ec0271f9ff6\n设备类型: PowerTransformer, Disconnector\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__c2000fc5-2a1a-4f5a-9569-aa209ee018cb",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _c2000fc5-2a1a-4f5a-9569-aa209ee018cb\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 6"
+  },
+  {
+    "id": "conn__aa1c1321-a0f2-4f06-b84a-b9da17f10459",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _aa1c1321-a0f2-4f06-b84a-b9da17f10459\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 6"
+  },
+  {
+    "id": "conn__29c4f110-c71b-4baa-8bd1-dd193606b955",
+    "label": "PowerTransformer\n+1",
+    "group": "ConnectivityNode",
+    "color": "#9C27B0",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _29c4f110-c71b-4baa-8bd1-dd193606b955\n设备类型: PowerTransformer, Disconnector\n映射到: TopologicalNode 6"
+  },
+  {
+    "id": "conn__41c16bf5-7747-424e-812e-06ab372aec9d",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _41c16bf5-7747-424e-812e-06ab372aec9d\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__ac6c4351-848e-43c1-aac9-8eab63bd6347",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _ac6c4351-848e-43c1-aac9-8eab63bd6347\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__71f091ea-9081-40c2-9e8c-49111b408dcf",
+    "label": "PowerTransformer\n+1",
+    "group": "ConnectivityNode",
+    "color": "#9C27B0",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _71f091ea-9081-40c2-9e8c-49111b408dcf\n设备类型: PowerTransformer, Disconnector\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__463aee41-aaef-4a6e-bea6-a67f5a0fcbdd",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _463aee41-aaef-4a6e-bea6-a67f5a0fcbdd\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 6"
+  },
+  {
+    "id": "conn__461cffe9-5b6d-4726-bbae-eb8f7abb4b3c",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _461cffe9-5b6d-4726-bbae-eb8f7abb4b3c\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 6"
+  },
+  {
+    "id": "conn__c575585e-bce8-4d2d-b211-a28f7ed6e07f",
+    "label": "PowerTransformer\n+1",
+    "group": "ConnectivityNode",
+    "color": "#9C27B0",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _c575585e-bce8-4d2d-b211-a28f7ed6e07f\n设备类型: PowerTransformer, Disconnector\n映射到: TopologicalNode 6"
+  },
+  {
+    "id": "conn__5781553c-c3c7-48af-9835-8ccdd12a34af",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _5781553c-c3c7-48af-9835-8ccdd12a34af\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 3"
+  },
+  {
+    "id": "conn__17933347-a362-481d-abd6-9ea6bd8aae8f",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _17933347-a362-481d-abd6-9ea6bd8aae8f\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 3"
+  },
+  {
+    "id": "conn__74fb7acb-29d3-4402-8f1d-f393a0cade37",
+    "label": "PowerTransformer\n+1",
+    "group": "ConnectivityNode",
+    "color": "#9C27B0",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _74fb7acb-29d3-4402-8f1d-f393a0cade37\n设备类型: PowerTransformer, Disconnector\n映射到: TopologicalNode 3"
+  },
+  {
+    "id": "conn__a662bdaf-fbb3-4801-b12a-ace07d246e9f",
+    "label": "SynchronousMachine\n+2",
+    "group": "ConnectivityNode",
+    "color": "#2196F3",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _a662bdaf-fbb3-4801-b12a-ace07d246e9f\n设备类型: SynchronousMachine, BusbarSection, Disconnector\n映射到: TopologicalNode HG2"
+  },
+  {
+    "id": "conn__a9d648ce-5c97-40cf-8a48-c26b1bd2987f",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _a9d648ce-5c97-40cf-8a48-c26b1bd2987f\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode HG2"
+  },
+  {
+    "id": "conn__c8dfe7f5-344f-45fe-89bf-91c30ef3f780",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _c8dfe7f5-344f-45fe-89bf-91c30ef3f780\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode HG2"
+  },
+  {
+    "id": "conn__2ad1f76e-e884-41d8-a50e-7f798b8e2df7",
+    "label": "PowerTransformer\n+1",
+    "group": "ConnectivityNode",
+    "color": "#9C27B0",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _2ad1f76e-e884-41d8-a50e-7f798b8e2df7\n设备类型: PowerTransformer, Disconnector\n映射到: TopologicalNode HG2"
+  },
+  {
+    "id": "conn__7dbc4e44-5c8e-4b22-a80c-4269fdaa7581",
+    "label": "SynchronousMachine\n+2",
+    "group": "ConnectivityNode",
+    "color": "#2196F3",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _7dbc4e44-5c8e-4b22-a80c-4269fdaa7581\n设备类型: SynchronousMachine, BusbarSection, Disconnector\n映射到: TopologicalNode HG1"
+  },
+  {
+    "id": "conn__6b3b2259-cac2-4b68-9ed0-2c8c4f769984",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _6b3b2259-cac2-4b68-9ed0-2c8c4f769984\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode HG1"
+  },
+  {
+    "id": "conn__3155f5d4-637d-470d-bbdb-c25bd1d24355",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _3155f5d4-637d-470d-bbdb-c25bd1d24355\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode HG1"
+  },
+  {
+    "id": "conn__7f102715-e610-4fe6-8557-ba49b1bb5be5",
+    "label": "PowerTransformer\n+1",
+    "group": "ConnectivityNode",
+    "color": "#9C27B0",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _7f102715-e610-4fe6-8557-ba49b1bb5be5\n设备类型: PowerTransformer, Disconnector\n映射到: TopologicalNode HG1"
+  },
+  {
+    "id": "conn__eaa17022-1f42-46ca-b431-12b3f8008a6b",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _eaa17022-1f42-46ca-b431-12b3f8008a6b\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 4"
+  },
+  {
+    "id": "conn__47e5b82b-8879-4619-aa11-aea30583af34",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _47e5b82b-8879-4619-aa11-aea30583af34\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 4"
+  },
+  {
+    "id": "conn__de0ba159-8462-4173-8690-782b1c8887f7",
+    "label": "PowerTransformer\n+1",
+    "group": "ConnectivityNode",
+    "color": "#9C27B0",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _de0ba159-8462-4173-8690-782b1c8887f7\n设备类型: PowerTransformer, Disconnector\n映射到: TopologicalNode 4"
+  },
+  {
+    "id": "conn__4506d630-5c09-449c-b3a1-8c3899b6a83e",
+    "label": "BusbarSection\n+1",
+    "group": "ConnectivityNode",
+    "color": "#607D8B",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _4506d630-5c09-449c-b3a1-8c3899b6a83e\n设备类型: BusbarSection, Disconnector\n映射到: TopologicalNode H"
+  },
+  {
+    "id": "conn__ba946d59-902f-403c-a4c2-5ebd4e1a5028",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _ba946d59-902f-403c-a4c2-5ebd4e1a5028\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode H"
+  },
+  {
+    "id": "conn__2e7c2f66-84ec-42d9-a05f-f49338e0e602",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _2e7c2f66-84ec-42d9-a05f-f49338e0e602\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode H"
+  },
+  {
+    "id": "conn__0ded970c-cec5-45ac-90d6-eaafcb208874",
+    "label": "PowerTransformer\n+1",
+    "group": "ConnectivityNode",
+    "color": "#9C27B0",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _0ded970c-cec5-45ac-90d6-eaafcb208874\n设备类型: PowerTransformer, Disconnector\n映射到: TopologicalNode H"
+  },
+  {
+    "id": "conn__c6879353-6561-4464-a4c2-46e7f208bb4a",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _c6879353-6561-4464-a4c2-46e7f208bb4a\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 2"
+  },
+  {
+    "id": "conn__cd4cf95a-19cc-4636-a300-59d3f000bced",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _cd4cf95a-19cc-4636-a300-59d3f000bced\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 2"
+  },
+  {
+    "id": "conn__ccf6d0de-5af6-4b10-a11c-76f99fe18508",
+    "label": "PowerTransformer\n+1",
+    "group": "ConnectivityNode",
+    "color": "#9C27B0",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _ccf6d0de-5af6-4b10-a11c-76f99fe18508\n设备类型: PowerTransformer, Disconnector\n映射到: TopologicalNode 2"
+  },
+  {
+    "id": "conn__4e34639c-5785-4ef6-811f-b0d237530ffb",
+    "label": "ExternalNetworkInjection\n+2",
+    "group": "ConnectivityNode",
+    "color": "#795548",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _4e34639c-5785-4ef6-811f-b0d237530ffb\n设备类型: ExternalNetworkInjection, BusbarSection, Disconnector\n映射到: TopologicalNode 1"
+  },
+  {
+    "id": "conn__767d214f-4170-404f-b49a-5d979e90010e",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _767d214f-4170-404f-b49a-5d979e90010e\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 1"
+  },
+  {
+    "id": "conn__7d8eae2a-2efb-41d1-8bb3-20a267f28461",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _7d8eae2a-2efb-41d1-8bb3-20a267f28461\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 1"
+  },
+  {
+    "id": "conn__bddd7013-7e34-414c-87da-8e1178fdc256",
+    "label": "PowerTransformer\n+1",
+    "group": "ConnectivityNode",
+    "color": "#9C27B0",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _bddd7013-7e34-414c-87da-8e1178fdc256\n设备类型: PowerTransformer, Disconnector\n映射到: TopologicalNode 1"
+  },
+  {
+    "id": "conn__20c8c63c-73fb-4613-a9cb-8f4ab940aa5d",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _20c8c63c-73fb-4613-a9cb-8f4ab940aa5d\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 1"
+  },
+  {
+    "id": "conn__e68b682a-53a1-47d3-9d6e-eb4197b52c73",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _e68b682a-53a1-47d3-9d6e-eb4197b52c73\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 1"
+  },
+  {
+    "id": "conn__f1fdcc78-2ff9-4118-8191-77e88dabfa22",
+    "label": "PowerTransformer\n+1",
+    "group": "ConnectivityNode",
+    "color": "#9C27B0",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _f1fdcc78-2ff9-4118-8191-77e88dabfa22\n设备类型: PowerTransformer, Disconnector\n映射到: TopologicalNode 1"
+  },
+  {
+    "id": "conn__7b5a5ef4-1e93-4f6d-be70-5357373e07ff",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _7b5a5ef4-1e93-4f6d-be70-5357373e07ff\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 2"
+  },
+  {
+    "id": "conn__bf1b9dd9-a46d-4479-894d-6fee84283c8f",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _bf1b9dd9-a46d-4479-894d-6fee84283c8f\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 2"
+  },
+  {
+    "id": "conn__59c6d51f-4520-4b53-922e-14dec1fdeab4",
+    "label": "PowerTransformer\n+1",
+    "group": "ConnectivityNode",
+    "color": "#9C27B0",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _59c6d51f-4520-4b53-922e-14dec1fdeab4\n设备类型: PowerTransformer, Disconnector\n映射到: TopologicalNode 2"
+  },
+  {
+    "id": "conn__9e981bec-a029-4692-a205-66aec553ed46",
+    "label": "BusbarSection\n+1",
+    "group": "ConnectivityNode",
+    "color": "#607D8B",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _9e981bec-a029-4692-a205-66aec553ed46\n设备类型: BusbarSection, Disconnector\n映射到: TopologicalNode 8"
+  },
+  {
+    "id": "conn__17ccac3a-66be-4ac4-98e8-0ead95b0ed11",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _17ccac3a-66be-4ac4-98e8-0ead95b0ed11\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 8"
+  },
+  {
+    "id": "conn__9e865f24-441f-4e2f-b46d-94e0b37a547d",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _9e865f24-441f-4e2f-b46d-94e0b37a547d\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 8"
+  },
+  {
+    "id": "conn__0ccf291a-eadf-4010-a26c-f691a135118f",
+    "label": "PowerTransformer\n+1",
+    "group": "ConnectivityNode",
+    "color": "#9C27B0",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _0ccf291a-eadf-4010-a26c-f691a135118f\n设备类型: PowerTransformer, Disconnector\n映射到: TopologicalNode 8"
+  },
+  {
+    "id": "conn__24fea3e7-7042-48f9-9a60-59d4b4cc3771",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _24fea3e7-7042-48f9-9a60-59d4b4cc3771\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 1"
+  },
+  {
+    "id": "conn__28c3b78e-8a19-44ce-9a4e-e932fcf67a51",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _28c3b78e-8a19-44ce-9a4e-e932fcf67a51\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 1"
+  },
+  {
+    "id": "conn__a60c40a3-2ef6-41b7-8ca2-08594f75eb63",
+    "label": "ACLineSegment\n+1",
+    "group": "ConnectivityNode",
+    "color": "#4CAF50",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _a60c40a3-2ef6-41b7-8ca2-08594f75eb63\n设备类型: ACLineSegment, Disconnector\n映射到: TopologicalNode 1"
+  },
+  {
+    "id": "conn__87c33625-a21c-46df-8723-ce0c4e26ca15",
+    "label": "Disconnector\n+1",
+    "group": "ConnectivityNode",
+    "color": "#E91E63",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _87c33625-a21c-46df-8723-ce0c4e26ca15\n设备类型: Disconnector, Breaker\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__0a5ec602-62ef-48ff-bb40-4bf99dd5e7d0",
+    "label": "Breaker\n+1",
+    "group": "ConnectivityNode",
+    "color": "#F44336",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _0a5ec602-62ef-48ff-bb40-4bf99dd5e7d0\n设备类型: Breaker, Disconnector\n映射到: TopologicalNode 5"
+  },
+  {
+    "id": "conn__8a5d6181-9f2e-4818-b3d6-dcca06db5e5e",
+    "label": "ACLineSegment\n+1",
+    "group": "ConnectivityNode",
+    "color": "#4CAF50",
+    "shape": "dot",
+    "size": 10,
+    "title": "ConnectivityNode: _8a5d6181-9f2e-4818-b3d6-dcca06db5e5e\n设备类型: ACLineSegment, Disconnector\n映射到: TopologicalNode 5"
+  }
+]);
+        var topologyEdges = new vis.DataSet([
+  {
+    "from": "topo__adee76cd-b2b9-48ac-8fd4-0d205a435f59",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#4ECDC4"
+    },
+    "width": 3,
+    "title": "Via Equipment"
+  },
+  {
+    "from": "topo__adee76cd-b2b9-48ac-8fd4-0d205a435f59",
+    "to": "topo__87c0d153-e308-4b2b-92a4-4fad53ab1ff9",
+    "arrows": "to",
+    "color": {
+      "color": "#4ECDC4"
+    },
+    "width": 3,
+    "title": "Via Equipment"
+  },
+  {
+    "from": "topo__adee76cd-b2b9-48ac-8fd4-0d205a435f59",
+    "to": "topo__03163ede-7eec-457f-8641-365982227d7c",
+    "arrows": "to",
+    "color": {
+      "color": "#4ECDC4"
+    },
+    "width": 3,
+    "title": "Via Equipment"
+  },
+  {
+    "from": "topo__adee76cd-b2b9-48ac-8fd4-0d205a435f59",
+    "to": "topo__8372a156-7579-4ea5-1111-24caf0d24603",
+    "arrows": "to",
+    "color": {
+      "color": "#4ECDC4"
+    },
+    "width": 3,
+    "title": "Via Equipment"
+  },
+  {
+    "from": "topo__87c0d153-e308-4b2b-92a4-4fad53ab1ff9",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#4ECDC4"
+    },
+    "width": 3,
+    "title": "Via Equipment"
+  },
+  {
+    "from": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "to": "topo__03163ede-7eec-457f-8641-365982227d7c",
+    "arrows": "to",
+    "color": {
+      "color": "#4ECDC4"
+    },
+    "width": 3,
+    "title": "Via Equipment"
+  },
+  {
+    "from": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "to": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "arrows": "to",
+    "color": {
+      "color": "#4ECDC4"
+    },
+    "width": 3,
+    "title": "Via Equipment"
+  },
+  {
+    "from": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#4ECDC4"
+    },
+    "width": 3,
+    "title": "Via Equipment"
+  },
+  {
+    "from": "topo__c7eda3d2-e92d-4935-8166-5e045d3de045",
+    "to": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "arrows": "to",
+    "color": {
+      "color": "#4ECDC4"
+    },
+    "width": 3,
+    "title": "Via Equipment"
+  },
+  {
+    "from": "topo__7f5515b2-ca6b-45af-93ee-f196686f0c66",
+    "to": "topo__c0adab49-d445-4609-a1a3-ebe4ef297cc8",
+    "arrows": "to",
+    "color": {
+      "color": "#4ECDC4"
+    },
+    "width": 3,
+    "title": "Via Equipment"
+  },
+  {
+    "from": "topo__c0adab49-d445-4609-a1a3-ebe4ef297cc8",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#4ECDC4"
+    },
+    "width": 3,
+    "title": "Via Equipment"
+  },
+  {
+    "from": "topo__c0adab49-d445-4609-a1a3-ebe4ef297cc8",
+    "to": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "arrows": "to",
+    "color": {
+      "color": "#4ECDC4"
+    },
+    "width": 3,
+    "title": "Via Equipment"
+  },
+  {
+    "from": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#4ECDC4"
+    },
+    "width": 3,
+    "title": "Via Equipment"
+  },
+  {
+    "from": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "to": "topo__8372a156-7579-4ea5-2222-24caf0d24603",
+    "arrows": "to",
+    "color": {
+      "color": "#4ECDC4"
+    },
+    "width": 3,
+    "title": "Via Equipment"
+  },
+  {
+    "from": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "to": "topo__764e0b8a-f2af-4092-b6aa-b4a19e55db98",
+    "arrows": "to",
+    "color": {
+      "color": "#4ECDC4"
+    },
+    "width": 3,
+    "title": "Via Equipment"
+  },
+  {
+    "from": "topo__764e0b8a-f2af-4092-b6aa-b4a19e55db98",
+    "to": "topo__cd84fa40-ef63-422d-8ee0-d0a0f806719e",
+    "arrows": "to",
+    "color": {
+      "color": "#4ECDC4"
+    },
+    "width": 3,
+    "title": "Via Equipment"
+  }
+]);
+        var mappingEdges = new vis.DataSet([
+  {
+    "from": "conn__567fee6b-56e6-4cee-b2a3-28098764bdcb",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__1d9f1b8a-8d53-440a-b97d-71772e193e9f",
+    "to": "topo__cd84fa40-ef63-422d-8ee0-d0a0f806719e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__528967db-59db-4208-b580-f184fe9d32c1",
+    "to": "topo__cd84fa40-ef63-422d-8ee0-d0a0f806719e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__69e9878c-fce1-4ce3-8535-0c4337e9fd0a",
+    "to": "topo__cd84fa40-ef63-422d-8ee0-d0a0f806719e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__0f82294a-5cb0-4395-b79a-514c7de478bf",
+    "to": "topo__cd84fa40-ef63-422d-8ee0-d0a0f806719e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__8adb739f-8939-4e87-8d3e-c958aa49c187",
+    "to": "topo__764e0b8a-f2af-4092-b6aa-b4a19e55db98",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__08d61cd0-994d-4ff9-89fe-3cd6ee25b71c",
+    "to": "topo__764e0b8a-f2af-4092-b6aa-b4a19e55db98",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__add7e168-c993-4dfa-b58e-7da15280f6f9",
+    "to": "topo__764e0b8a-f2af-4092-b6aa-b4a19e55db98",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__ec8c3b42-d70c-41d6-89f4-f2df958817c8",
+    "to": "topo__764e0b8a-f2af-4092-b6aa-b4a19e55db98",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__e2f8de8c-3191-4676-9ee7-f920e46f9085",
+    "to": "topo__c0adab49-d445-4609-a1a3-ebe4ef297cc8",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__2d51a1ee-8a92-4c14-8f13-586427c86626",
+    "to": "topo__c0adab49-d445-4609-a1a3-ebe4ef297cc8",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__67581d4c-d6b7-4679-a655-33c9cef2cb1b",
+    "to": "topo__c0adab49-d445-4609-a1a3-ebe4ef297cc8",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__9e585839-b83e-4f53-95f7-2fe60dea9e67",
+    "to": "topo__c0adab49-d445-4609-a1a3-ebe4ef297cc8",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__d3de846d-5271-465e-8558-3e736fa120c4",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__ddc31fd5-e9be-481b-a426-f3970c0b51e2",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__9232947a-f81f-472a-ac61-fa1b3f22b740",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__c4cea32b-2ea1-4be3-9040-2a29cf7a48f1",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__b15dabdc-4466-4ce6-a546-4b3579a079f8",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__5de48674-41f7-4a17-8055-320eab5b638e",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__cc636acd-3f39-4641-829e-dc401eb03569",
+    "to": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__c099d321-32a7-4cf9-8680-00d2f7d5eabf",
+    "to": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__955134c9-51cb-4e7c-a960-587c16111331",
+    "to": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__064ae2ca-de5b-41a6-a3a4-86ddd1136880",
+    "to": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__c4e14a0e-16c4-4b46-8d2d-b45ff7585057",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__e4fa17b2-d2a2-4a57-a74e-a382c8092187",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__1cf8ec46-dde1-454e-9e98-38aeb059a1c5",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__05c02066-7ded-48d7-b787-da1d2e77f81c",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__86e78ed5-cbc9-4c9a-b929-da282b4f6f72",
+    "to": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__f2f0151f-d02a-4ff6-bf16-b8fd2f7738f7",
+    "to": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__1925701d-9d85-4f19-86e4-cb7a75453f59",
+    "to": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__efdda81c-b0f4-4be2-85fb-45c6be439789",
+    "to": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__d74ef9c4-2df3-4ee6-a3b0-47de684c6852",
+    "to": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__d09c63da-d5f4-4d89-a757-c7426a4b81d2",
+    "to": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__ccb7c358-3422-42b1-808b-b46c0201fdd7",
+    "to": "topo__c0adab49-d445-4609-a1a3-ebe4ef297cc8",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__9b8c8eea-fa50-4e84-96eb-cfc03a3fc5b6",
+    "to": "topo__c0adab49-d445-4609-a1a3-ebe4ef297cc8",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__473b9f45-3071-4fef-a90b-43a8c4eddeae",
+    "to": "topo__c0adab49-d445-4609-a1a3-ebe4ef297cc8",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__a2f94dfc-c3c3-4dbf-95b8-8435ca5eaf74",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__40bb040b-2375-471e-84b5-b8f177e897d7",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__d9649b2e-0a9c-424e-b3b2-31dbd41bee4f",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__583e0eed-a939-4d54-bebe-0d133bdf3c42",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__858bc635-8899-4f15-aacd-7ed65ed24696",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__cc81766a-a254-432f-b9a2-e22225f529f7",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__2025cf6e-0135-4085-ac63-3d232ea808cf",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__289cda9a-53df-441b-a05a-fa90cdd44d94",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__b662305d-ac49-4c92-8a1d-ea3036616328",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__189fdb29-586a-4bda-a2d0-ce4a1e11a892",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__364f4b8f-8a34-477a-8b25-fd3a8666ae59",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__edfce3cd-e2e1-49eb-9660-7fe920b96c57",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__18e79ca1-d405-4df2-baab-056c46c503d9",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__08fb7cc1-82f4-4b13-b3ed-a46da751fd17",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__959b2f06-3e1d-454c-b756-7ec0271f9ff6",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__c2000fc5-2a1a-4f5a-9569-aa209ee018cb",
+    "to": "topo__764e0b8a-f2af-4092-b6aa-b4a19e55db98",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__aa1c1321-a0f2-4f06-b84a-b9da17f10459",
+    "to": "topo__764e0b8a-f2af-4092-b6aa-b4a19e55db98",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__29c4f110-c71b-4baa-8bd1-dd193606b955",
+    "to": "topo__764e0b8a-f2af-4092-b6aa-b4a19e55db98",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__41c16bf5-7747-424e-812e-06ab372aec9d",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__ac6c4351-848e-43c1-aac9-8eab63bd6347",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__71f091ea-9081-40c2-9e8c-49111b408dcf",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__463aee41-aaef-4a6e-bea6-a67f5a0fcbdd",
+    "to": "topo__764e0b8a-f2af-4092-b6aa-b4a19e55db98",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__461cffe9-5b6d-4726-bbae-eb8f7abb4b3c",
+    "to": "topo__764e0b8a-f2af-4092-b6aa-b4a19e55db98",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__c575585e-bce8-4d2d-b211-a28f7ed6e07f",
+    "to": "topo__764e0b8a-f2af-4092-b6aa-b4a19e55db98",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__5781553c-c3c7-48af-9835-8ccdd12a34af",
+    "to": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__17933347-a362-481d-abd6-9ea6bd8aae8f",
+    "to": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__74fb7acb-29d3-4402-8f1d-f393a0cade37",
+    "to": "topo__c8726716-e182-4373-b83e-8f60070078cb",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__a662bdaf-fbb3-4801-b12a-ace07d246e9f",
+    "to": "topo__c7eda3d2-e92d-4935-8166-5e045d3de045",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__a9d648ce-5c97-40cf-8a48-c26b1bd2987f",
+    "to": "topo__c7eda3d2-e92d-4935-8166-5e045d3de045",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__c8dfe7f5-344f-45fe-89bf-91c30ef3f780",
+    "to": "topo__c7eda3d2-e92d-4935-8166-5e045d3de045",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__2ad1f76e-e884-41d8-a50e-7f798b8e2df7",
+    "to": "topo__c7eda3d2-e92d-4935-8166-5e045d3de045",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__7dbc4e44-5c8e-4b22-a80c-4269fdaa7581",
+    "to": "topo__7f5515b2-ca6b-45af-93ee-f196686f0c66",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__6b3b2259-cac2-4b68-9ed0-2c8c4f769984",
+    "to": "topo__7f5515b2-ca6b-45af-93ee-f196686f0c66",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__3155f5d4-637d-470d-bbdb-c25bd1d24355",
+    "to": "topo__7f5515b2-ca6b-45af-93ee-f196686f0c66",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__7f102715-e610-4fe6-8557-ba49b1bb5be5",
+    "to": "topo__7f5515b2-ca6b-45af-93ee-f196686f0c66",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__eaa17022-1f42-46ca-b431-12b3f8008a6b",
+    "to": "topo__c0adab49-d445-4609-a1a3-ebe4ef297cc8",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__47e5b82b-8879-4619-aa11-aea30583af34",
+    "to": "topo__c0adab49-d445-4609-a1a3-ebe4ef297cc8",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__de0ba159-8462-4173-8690-782b1c8887f7",
+    "to": "topo__c0adab49-d445-4609-a1a3-ebe4ef297cc8",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__4506d630-5c09-449c-b3a1-8c3899b6a83e",
+    "to": "topo__03163ede-7eec-457f-8641-365982227d7c",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__ba946d59-902f-403c-a4c2-5ebd4e1a5028",
+    "to": "topo__03163ede-7eec-457f-8641-365982227d7c",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__2e7c2f66-84ec-42d9-a05f-f49338e0e602",
+    "to": "topo__03163ede-7eec-457f-8641-365982227d7c",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__0ded970c-cec5-45ac-90d6-eaafcb208874",
+    "to": "topo__03163ede-7eec-457f-8641-365982227d7c",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__c6879353-6561-4464-a4c2-46e7f208bb4a",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__cd4cf95a-19cc-4636-a300-59d3f000bced",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__ccf6d0de-5af6-4b10-a11c-76f99fe18508",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__4e34639c-5785-4ef6-811f-b0d237530ffb",
+    "to": "topo__adee76cd-b2b9-48ac-8fd4-0d205a435f59",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__767d214f-4170-404f-b49a-5d979e90010e",
+    "to": "topo__adee76cd-b2b9-48ac-8fd4-0d205a435f59",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__7d8eae2a-2efb-41d1-8bb3-20a267f28461",
+    "to": "topo__adee76cd-b2b9-48ac-8fd4-0d205a435f59",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__bddd7013-7e34-414c-87da-8e1178fdc256",
+    "to": "topo__adee76cd-b2b9-48ac-8fd4-0d205a435f59",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__20c8c63c-73fb-4613-a9cb-8f4ab940aa5d",
+    "to": "topo__adee76cd-b2b9-48ac-8fd4-0d205a435f59",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__e68b682a-53a1-47d3-9d6e-eb4197b52c73",
+    "to": "topo__adee76cd-b2b9-48ac-8fd4-0d205a435f59",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__f1fdcc78-2ff9-4118-8191-77e88dabfa22",
+    "to": "topo__adee76cd-b2b9-48ac-8fd4-0d205a435f59",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__7b5a5ef4-1e93-4f6d-be70-5357373e07ff",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__bf1b9dd9-a46d-4479-894d-6fee84283c8f",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__59c6d51f-4520-4b53-922e-14dec1fdeab4",
+    "to": "topo__b3d3b4ad-02af-4490-8748-70f6c9a23734",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__9e981bec-a029-4692-a205-66aec553ed46",
+    "to": "topo__87c0d153-e308-4b2b-92a4-4fad53ab1ff9",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__17ccac3a-66be-4ac4-98e8-0ead95b0ed11",
+    "to": "topo__87c0d153-e308-4b2b-92a4-4fad53ab1ff9",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__9e865f24-441f-4e2f-b46d-94e0b37a547d",
+    "to": "topo__87c0d153-e308-4b2b-92a4-4fad53ab1ff9",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__0ccf291a-eadf-4010-a26c-f691a135118f",
+    "to": "topo__87c0d153-e308-4b2b-92a4-4fad53ab1ff9",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__24fea3e7-7042-48f9-9a60-59d4b4cc3771",
+    "to": "topo__adee76cd-b2b9-48ac-8fd4-0d205a435f59",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__28c3b78e-8a19-44ce-9a4e-e932fcf67a51",
+    "to": "topo__adee76cd-b2b9-48ac-8fd4-0d205a435f59",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__a60c40a3-2ef6-41b7-8ca2-08594f75eb63",
+    "to": "topo__adee76cd-b2b9-48ac-8fd4-0d205a435f59",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__87c33625-a21c-46df-8723-ce0c4e26ca15",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__0a5ec602-62ef-48ff-bb40-4bf99dd5e7d0",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  },
+  {
+    "from": "conn__8a5d6181-9f2e-4818-b3d6-dcca06db5e5e",
+    "to": "topo__37edd845-456f-4c3e-98d5-19af0c1cef1e",
+    "arrows": "to",
+    "color": {
+      "color": "#95A5A6"
+    },
+    "dashes": true,
+    "width": 1,
+    "title": "ConnectivityNode → TopologicalNode"
+  }
+]);
+        
+        // 合并所有边
+        var allTopologyEdges = new vis.DataSet([...topologyEdges.get(), ...mappingEdges.get()]);
+        
+        var topologyContainer = document.getElementById('topology-network');
+        var topologyNetworkData = {
+            nodes: topologyNodes,
+            edges: allTopologyEdges
+        };
+        var topologyNetwork = new vis.Network(topologyContainer, topologyNetworkData, options);
+        
+        topologyNetwork.on("click", function (params) {
+            if (params.nodes.length > 0) {
+                console.log("选中拓扑节点:", params.nodes[0]);
+            }
+        });
+        
+    </script>
+</body>
+</html>

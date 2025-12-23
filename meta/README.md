@@ -36,7 +36,7 @@
 ┌─────────────────────────────────────┐
 │   Type System (Meta Layer)          │  ← 元层
 │   - Type Descriptors                │
-│   - CIM to TypeSystem Converter     │
+│   - YAML Loader                     │
 │   - Operation Validator             │
 └─────────────────────────────────────┘
            ↓
@@ -52,11 +52,9 @@
 
 ```
 meta/
-├── typesystem.yaml          # 类型系统DSL定义
 ├── types.go                 # 类型描述符数据结构
 ├── registry.go              # 类型注册表
 ├── loader.go                # YAML加载器
-├── cim_converter.go         # CIM到类型系统转换器
 ├── go.mod                   # Go模块定义
 └── cmd/
     └── example/
@@ -67,7 +65,7 @@ meta/
 
 ### 1. 定义类型系统
 
-在 `typesystem.yaml` 中定义资源类型：
+在类型系统 YAML 文件中定义资源类型（例如 `cmd/uos-kernel/typesystem.yaml`）：
 
 ```yaml
 resource_types:
@@ -86,7 +84,7 @@ resource_types:
 
 ```go
 k := kernel.NewKernel(system)
-err := k.LoadTypeSystem("meta/typesystem.yaml")
+err := k.LoadTypeSystem("cmd/uos-kernel/typesystem.yaml")
 ```
 
 ### 3. 使用POSIX风格接口
@@ -140,31 +138,9 @@ result, err := k.Ioctl(ctx, fd, 0x1004, map[string]interface{}{"value": 150.0})
 - `GetCapability(name)` - 获取能力描述符
 - `ValidateOperation(capability, operation)` - 验证操作
 
-## CIM模型转换
-
-`CIMToTypeSystemConverter` 可以将CIM模型转换为类型系统：
-
-```go
-converter := meta.NewCIMToTypeSystemConverter(registry)
-
-entityInfo := meta.EntityInfo{
-    Name: "Breaker",
-    Inherits: "PowerSystemResource",
-    Attributes: [...],
-    Relationships: [...],
-}
-
-descriptor, err := converter.ConvertEntityToType("Breaker", entityInfo)
-```
-
-转换器会：
-1. 从CIM实体提取属性
-2. 从CIM关系推断能力（Control、Measurement等）
-3. 生成类型描述符
-
 ## 操作映射
 
-在 `typesystem.yaml` 中定义ioctl命令到能力操作的映射：
+在类型系统 YAML 文件中定义ioctl命令到能力操作的映射：
 
 ```yaml
 operation_mapping:
@@ -177,7 +153,7 @@ operation_mapping:
 
 ## 示例
 
-参见 `cmd/example/main.go` 了解完整的使用示例。
+参见 `cmd/uos-kernel/main.go` 了解完整的使用示例。
 
 ## 与Actor系统集成
 

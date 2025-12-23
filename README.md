@@ -64,7 +64,7 @@ UOS Kernel 是一个基于 CIM (Common Information Model) 标准的电力系统�
 - **类型定义**：通过 YAML DSL 定义资源类型、属性、关系、能力
 - **类型注册**：TypeRegistry 管理所有类型描述符
 - **类型验证**：在执行操作前验证资源类型和能力
-- **CIM转换**：自动将 CIM 模型转换为类型系统定义
+- **YAML加载**：从 YAML 文件加载类型系统定义
 
 ### 4. POSIX 风格接口
 
@@ -81,14 +81,15 @@ UOS Kernel 是一个基于 CIM (Common Information Model) 标准的电力系统�
 
 ```
 uos-kernel/
-├── meta/                      # 元层：类型系统定义
-│   ├── typesystem.yaml       # 类型系统DSL定义
+├── cmd/
+│   └── uos-kernel/           # 主应用程序
+│       ├── main.go           # 应用程序入口
+│       └── typesystem.yaml   # 默认类型系统定义（CIM 资源类型配置，可通过参数覆盖）
+├── meta/                      # 元层：类型系统框架
 │   ├── types.go              # 类型描述符数据结构
 │   ├── registry.go           # 类型注册表
 │   ├── loader.go             # YAML加载器
-│   ├── cim_converter.go      # CIM到类型系统转换器
-│   ├── README.md             # 类型系统使用文档
-│   └── cmd/example/          # 使用示例
+│   └── README.md             # 类型系统使用文档
 │
 ├── kernel/                    # 内核层：系统调用接口
 │   ├── kernel.go             # Kernel（高级接口）
@@ -116,10 +117,9 @@ uos-kernel/
 │   │   ├── state_backend.go  # 状态后端
 │   │   ├── snapshot_store.go # 快照存储接口
 │   │   └── ...
-│   ├── mq/                   # MQ Consumer 接口
-│   │   ├── consumer.go
-│   │   └── mock_consumer.go
-│   └── cmd/                  # 示例程序
+│   └── mq/                   # MQ Consumer 接口
+│       ├── consumer.go
+│       └── mock_consumer.go
 │
 ├── cim/                       # CIM 数据集和模式
 │   ├── datasets/             # CIM 数据集
@@ -169,10 +169,10 @@ type Capacity interface {
 - 包含属性、关系、能力、生命周期等信息
 - 支持类型继承和查询
 
-**CIM Converter**
-- 将 CIM 实体转换为类型描述符
-- 从 CIM 关系推断能力
-- 自动推断关系的基数和反向关系
+**YAML Loader**
+- 从 YAML 文件加载类型系统定义
+- 支持类型继承和属性/能力继承
+- 自动解析类型描述符
 
 ### 3. 内核层 (`kernel/`)
 
@@ -215,7 +215,7 @@ func main() {
     k := kernel.NewKernel(system)
 
     // 4. 加载类型系统定义
-    k.LoadTypeSystem("meta/typesystem.yaml")
+    k.LoadTypeSystem("cmd/uos-kernel/typesystem.yaml")
 
     // 5. 打开资源（带类型验证）
     fd, err := k.Open("Breaker", "BREAKER_001", 0)
@@ -252,7 +252,7 @@ rm.RCtl(ctx, fd, kernel.CMD_SET_POINT, setPointArg)
 
 ## 类型系统定义
 
-在 `meta/typesystem.yaml` 中定义资源类型：
+在类型系统 YAML 文件中定义资源类型（默认：`cmd/uos-kernel/typesystem.yaml`）：
 
 ```yaml
 resource_types:
@@ -309,9 +309,10 @@ resource_types:
 
 ### 定义新的资源类型
 
-1. 在 `meta/typesystem.yaml` 中添加类型定义
+1. 在类型系统 YAML 文件中添加类型定义（默认：`cmd/uos-kernel/typesystem.yaml`）
 2. 定义属性、关系、能力
-3. 在 `meta/typesystem.yaml` 中定义 ioctl 命令映射
+3. 在类型系统 YAML 文件中定义 ioctl 命令映射
+4. 启动时可通过 `-typesystem` 参数指定自定义类型系统文件
 
 ## 许可证
 

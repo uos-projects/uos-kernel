@@ -26,8 +26,21 @@ type Kernel struct {
 	ioctlMapping map[int]meta.IoctlCommandDef
 }
 
-// NewKernel 创建资源内核
+// NewKernel 创建资源内核（需要传入 Actor System）
+// 使用依赖注入方式，允许外部控制 System 的生命周期
 func NewKernel(system *actors.System) *Kernel {
+	return &Kernel{
+		system:       system,
+		typeRegistry: meta.NewTypeRegistry(),
+		resourceMgr:  NewManager(system),
+		ioctlMapping: make(map[int]meta.IoctlCommandDef),
+	}
+}
+
+// NewKernelWithContext 创建资源内核（自动创建 Actor System）
+// 简化使用方式，System 生命周期由 Kernel 管理
+func NewKernelWithContext(ctx context.Context) *Kernel {
+	system := actors.NewSystem(ctx)
 	return &Kernel{
 		system:       system,
 		typeRegistry: meta.NewTypeRegistry(),
@@ -275,6 +288,21 @@ func (k *Kernel) Find(resourceType string, filter Filter) ([]ResourceDescriptor,
 func (k *Kernel) Watch(fd ResourceDescriptor, events []EventType) (<-chan Event, error) {
 	// TODO: 实现资源变化监听
 	return nil, fmt.Errorf("watch not implemented yet")
+}
+
+// GetTypeRegistry 获取类型注册表（用于查询已加载的类型）
+func (k *Kernel) GetTypeRegistry() *meta.TypeRegistry {
+	return k.typeRegistry
+}
+
+// Shutdown 关闭 Kernel 及其管理的 Actor System
+// 如果 System 是由 NewKernelWithContext 创建的，应该调用此方法
+// 如果 System 是外部传入的，应该直接调用 system.Shutdown()
+func (k *Kernel) Shutdown() error {
+	if k.system != nil {
+		return k.system.Shutdown()
+	}
+	return nil
 }
 
 // ResourceStat 资源统计信息
