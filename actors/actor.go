@@ -6,8 +6,7 @@ import (
 	"sync"
 )
 
-// Message 表示 Actor 之间传递的消息
-type Message interface{}
+// Message 接口已在 messages.go 中定义
 
 // Actor 接口定义了 Actor 的基本行为
 type Actor interface {

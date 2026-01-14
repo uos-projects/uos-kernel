@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/uos-projects/uos-kernel/actors"
+	"github.com/uos-projects/uos-kernel/actors/cim"
 	"github.com/uos-projects/uos-kernel/kernel"
 )
 
@@ -15,11 +16,11 @@ func ExampleManager() {
 	system := actors.NewSystem(ctx)
 	defer system.Shutdown()
 
-	// 创建 CIMResourceActor
-	actor := actors.NewCIMResourceActor("BE-G4", "http://www.iec.ch/TC57/CIM#SynchronousMachine", nil)
+	// 创建 CIMResourceActor（CIM 特定的）
+	actor := cim.NewCIMResourceActor("BE-G4", "http://www.iec.ch/TC57/CIM#SynchronousMachine", nil)
 
-	// 添加 Capabilities
-	factory := actors.NewCapacityFactory()
+	// 添加 Capabilities（CIM 特定的）
+	factory := cim.NewCapacityFactory()
 	setPointCap, _ := factory.CreateCapacity("SetPoint", "SET_PNT_1")
 	commandCap, _ := factory.CreateCapacity("Command", "CMD_1")
 
@@ -99,8 +100,8 @@ func ExampleManager_Exclusive() {
 	system := actors.NewSystem(ctx)
 	defer system.Shutdown()
 
-	// 创建 CIMResourceActor
-	actor := actors.NewCIMResourceActor("EXCLUSIVE-RESOURCE", "http://www.iec.ch/TC57/CIM#SynchronousMachine", nil)
+	// 创建 CIMResourceActor（CIM 特定的）
+	actor := cim.NewCIMResourceActor("EXCLUSIVE-RESOURCE", "http://www.iec.ch/TC57/CIM#SynchronousMachine", nil)
 	system.Register(actor)
 
 	// 创建资源管理器

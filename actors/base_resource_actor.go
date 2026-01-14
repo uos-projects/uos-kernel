@@ -3,17 +3,61 @@ package actors
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/uos-projects/uos-kernel/actors/capacities"
 )
 
+// LifecycleState 生命周期状态
+type LifecycleState string
+
+const (
+	StateOnline    LifecycleState = "online"     // 在线
+	StateOffline   LifecycleState = "offline"    // 离线
+	StateSuspended LifecycleState = "suspended"  // 挂起
+	StateBusy      LifecycleState = "busy"       // 忙碌
+)
+
+// StateTransition 状态转换记录
+type StateTransition struct {
+	FromState LifecycleState
+	ToState   LifecycleState
+	Timestamp int64
+	Trigger   string
+}
+
+// BehaviorState 行为状态（正在执行的命令/场景步骤）
+type BehaviorState struct {
+	// CommandID 正在执行的命令 ID
+	CommandID string
+	// CommandType 命令类型
+	CommandType string
+	// ScenarioStep 场景步骤（如果有）
+	ScenarioStep string
+	// StartedAt 开始时间
+	StartedAt int64
+}
+
 // BaseResourceActor 资源 Actor 基类
-// 提供能力管理（Capacity）功能，是所有资源 Actor 的基础
+// 提供能力管理（Capacity）和外部绑定（Binding）功能，是所有资源 Actor 的基础
 type BaseResourceActor struct {
 	*BaseActor
 	resourceID   string
 	resourceType string
 	capabilities map[string]capacities.Capacity // 能力名称 -> Capacity 实现
+	bindings     map[BindingType]Binding        // 绑定类型 -> Binding 实现
+	
+	// 生命周期状态机
+	currentState  LifecycleState
+	stateHistory  []StateTransition // 状态变化历史
+	stateMu       sync.RWMutex      // 状态锁
+	
+	// 行为状态（正在执行的命令/场景步骤）
+	behaviorState *BehaviorState
+	behaviorMu    sync.RWMutex     // 行为状态锁
+	
+	// 事件发射器
+	eventEmitter *BaseEventEmitter
 }
 
 // NewBaseResourceActor 创建一个新的基础资源 Actor
@@ -24,10 +68,15 @@ func NewBaseResourceActor(
 ) *BaseResourceActor {
 	baseActor := NewBaseActor(id, behavior)
 	return &BaseResourceActor{
-		BaseActor:    baseActor,
-		resourceID:   id,
-		resourceType: resourceType,
-		capabilities: make(map[string]capacities.Capacity),
+		BaseActor:     baseActor,
+		resourceID:    id,
+		resourceType:  resourceType,
+		capabilities:  make(map[string]capacities.Capacity),
+		bindings:      make(map[BindingType]Binding),
+		currentState:  StateOffline, // 初始状态为离线
+		stateHistory:  make([]StateTransition, 0),
+		behaviorState: nil, // 初始无行为状态
+		eventEmitter:  nil, // 将在 SetSystem 时初始化
 	}
 }
 
@@ -77,28 +126,365 @@ func (a *BaseResourceActor) ListCapabilities() []string {
 	return names
 }
 
-// Receive 重写消息接收逻辑，路由到对应的 Capacity
+// AddBinding 添加外部绑定
+func (a *BaseResourceActor) AddBinding(binding Binding) error {
+	if binding.ResourceID() != a.resourceID {
+		return fmt.Errorf("binding resource ID mismatch: expected %s, got %s", a.resourceID, binding.ResourceID())
+	}
+	
+	// 设置 Actor 引用（如果绑定支持）
+	if setter, ok := binding.(ActorRefSetter); ok {
+		setter.SetActorRef(a)
+	}
+	
+	a.bindings[binding.Type()] = binding
+	return nil
+}
+
+// RemoveBinding 移除外部绑定
+func (a *BaseResourceActor) RemoveBinding(bindingType BindingType) error {
+	binding, exists := a.bindings[bindingType]
+	if !exists {
+		return fmt.Errorf("binding type %s not found", bindingType)
+	}
+	
+	if err := binding.Stop(); err != nil {
+		return fmt.Errorf("failed to stop binding: %w", err)
+	}
+	
+	delete(a.bindings, bindingType)
+	return nil
+}
+
+// GetBinding 获取指定类型的绑定
+func (a *BaseResourceActor) GetBinding(bindingType BindingType) (Binding, bool) {
+	binding, exists := a.bindings[bindingType]
+	return binding, exists
+}
+
+// ListBindings 返回所有绑定类型列表
+func (a *BaseResourceActor) ListBindings() []BindingType {
+	types := make([]BindingType, 0, len(a.bindings))
+	for bindingType := range a.bindings {
+		types = append(types, bindingType)
+	}
+	return types
+}
+
+// CurrentState 获取当前生命周期状态
+func (a *BaseResourceActor) CurrentState() LifecycleState {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	return a.currentState
+}
+
+// CanTransition 检查是否可以转换到指定状态
+func (a *BaseResourceActor) CanTransition(to LifecycleState) bool {
+	a.stateMu.RLock()
+	current := a.currentState
+	a.stateMu.RUnlock()
+	
+	// 定义允许的状态转换
+	allowedTransitions := map[LifecycleState][]LifecycleState{
+		StateOffline:   {StateOnline, StateSuspended},
+		StateOnline:   {StateOffline, StateSuspended, StateBusy},
+		StateSuspended: {StateOnline, StateOffline},
+		StateBusy:      {StateOnline, StateOffline},
+	}
+	
+	allowed, exists := allowedTransitions[current]
+	if !exists {
+		return false
+	}
+	
+	for _, state := range allowed {
+		if state == to {
+			return true
+		}
+	}
+	
+	return false
+}
+
+// SetSystem 设置 System 引用（重写基类方法，同时初始化事件发射器）
+func (a *BaseResourceActor) SetSystem(system *System) {
+	a.BaseActor.SetSystem(system)
+	if a.eventEmitter == nil {
+		a.eventEmitter = NewBaseEventEmitter(a.resourceID, system)
+	}
+}
+
+// transition 转换状态（内部方法，只能通过消息调用）
+func (a *BaseResourceActor) transition(to LifecycleState, trigger string) error {
+	a.stateMu.Lock()
+	defer a.stateMu.Unlock()
+	
+	current := a.currentState
+	
+	// 定义允许的状态转换
+	allowedTransitions := map[LifecycleState][]LifecycleState{
+		StateOffline:   {StateOnline, StateSuspended},
+		StateOnline:   {StateOffline, StateSuspended, StateBusy},
+		StateSuspended: {StateOnline, StateOffline},
+		StateBusy:      {StateOnline, StateOffline},
+	}
+	
+	allowed, exists := allowedTransitions[current]
+	if !exists {
+		return fmt.Errorf("invalid current state: %s", current)
+	}
+	
+	// 检查是否允许转换
+	canTransition := false
+	for _, state := range allowed {
+		if state == to {
+			canTransition = true
+			break
+		}
+	}
+	
+	if !canTransition {
+		return fmt.Errorf("invalid state transition from %s to %s", current, to)
+	}
+	
+	fromState := current
+	
+	// 记录状态转换
+	transition := StateTransition{
+		FromState: fromState,
+		ToState:   to,
+		Timestamp: 0, // TODO: 使用实际时间戳
+		Trigger:   trigger,
+	}
+	
+	// 添加到历史记录（保留最近100条）
+	a.stateHistory = append(a.stateHistory, transition)
+	if len(a.stateHistory) > 100 {
+		a.stateHistory = a.stateHistory[1:]
+	}
+	
+	// 更新当前状态
+	a.currentState = to
+	
+	return nil
+}
+
+// GetStateHistory 获取状态变化历史
+func (a *BaseResourceActor) GetStateHistory() []StateTransition {
+	a.stateMu.RLock()
+	defer a.stateMu.RUnlock()
+	
+	// 返回副本
+	result := make([]StateTransition, len(a.stateHistory))
+	copy(result, a.stateHistory)
+	return result
+}
+
+// Receive 重写消息接收逻辑，按照消息分类路由
+// 核心执行逻辑：
+//   if CapabilityCommand: check guard → execute or reject
+//   else if CoordinationEvent: update state / notify
+//   else if Internal: internal handling
 func (a *BaseResourceActor) Receive(ctx context.Context, msg Message) error {
-	// 尝试找到能处理此消息的 Capacity
+	// 根据消息类型分类处理
+	switch msg.MessageType() {
+	case MessageCategoryCapabilityCommand:
+		return a.handleCapabilityCommand(ctx, msg)
+	case MessageCategoryCoordinationEvent:
+		return a.handleCoordinationEvent(ctx, msg)
+	case MessageCategoryInternal:
+		return a.handleInternalMessage(ctx, msg)
+	default:
+		// 兼容旧代码：如果消息没有实现 Message 接口，尝试按旧方式处理
+		return a.handleLegacyMessage(ctx, msg)
+	}
+}
+
+// handleCapabilityCommand 处理能力命令
+func (a *BaseResourceActor) handleCapabilityCommand(ctx context.Context, msg Message) error {
+	// 转换为 Capacity Message
+	var capMsg capacities.Message = msg
+	
+	// 找到能处理此消息的 Capacity
+	var targetCapacity capacities.Capacity
+	for _, capacity := range a.capabilities {
+		if capacity.CanHandle(capMsg) {
+			targetCapacity = capacity
+			break
+		}
+	}
+	
+	if targetCapacity == nil {
+		return fmt.Errorf("no capacity can handle command %T", msg)
+	}
+	
+	// 检查 Guards（如果 Capacity 实现了 Guards）
+	if guards, ok := targetCapacity.(capacities.Guards); ok {
+		satisfied, failed, err := guards.CheckGuards(ctx, a)
+		if err != nil {
+			return fmt.Errorf("error checking guards: %w", err)
+		}
+		if !satisfied {
+			// 发射命令被拒绝事件
+			if cmd, ok := msg.(CapabilityCommand); ok && a.eventEmitter != nil {
+				_ = a.eventEmitter.EmitCommandFailed(cmd.CommandID(), fmt.Errorf("guards not satisfied: %v", failed))
+			}
+			return fmt.Errorf("guards not satisfied: %v", failed)
+		}
+	}
+	
+	// 记录行为状态（如果命令实现了 CapabilityCommand）
+	if cmd, ok := msg.(CapabilityCommand); ok {
+		a.setBehaviorState(&BehaviorState{
+			CommandID:   cmd.CommandID(),
+			CommandType: fmt.Sprintf("%T", msg),
+			StartedAt:   0, // TODO: 使用实际时间戳
+		})
+		defer a.clearBehaviorState()
+	}
+	
+	// 执行 Capacity
+	err := targetCapacity.Execute(ctx, capMsg)
+	
+	// 发射执行结果事件
+	if cmd, ok := msg.(CapabilityCommand); ok && a.eventEmitter != nil {
+		if err != nil {
+			_ = a.eventEmitter.EmitCommandFailed(cmd.CommandID(), err)
+		} else {
+			_ = a.eventEmitter.EmitCommandCompleted(cmd.CommandID(), nil)
+		}
+	}
+	
+	// 应用 Effects（如果 Capacity 实现了 Effects）
+	if err == nil {
+		if effects, ok := targetCapacity.(capacities.Effects); ok {
+			a.applyEffects(effects.Effects())
+		}
+	}
+	
+	return err
+}
+
+// handleCoordinationEvent 处理协同事件
+func (a *BaseResourceActor) handleCoordinationEvent(ctx context.Context, msg Message) error {
+	switch m := msg.(type) {
+	case *ExternalEventMessage:
+		// 外部事件：更新状态或通知
+		// 这里可以根据具体业务逻辑处理
+		return nil
+	case *ExecuteExternalCommandMessage:
+		// 执行外部命令：通过 Binding 执行
+		binding, exists := a.bindings[m.BindingType]
+		if !exists {
+			return fmt.Errorf("binding type %s not found", m.BindingType)
+		}
+		return binding.ExecuteExternal(ctx, m.Command)
+	default:
+		// 其他协同事件：默认处理
+		return nil
+	}
+}
+
+// handleInternalMessage 处理内部消息
+func (a *BaseResourceActor) handleInternalMessage(ctx context.Context, msg Message) error {
+	switch m := msg.(type) {
+	case *TransitionStateMessage:
+		from := a.currentState
+		err := a.transition(m.ToState, m.Trigger)
+		if err == nil && a.eventEmitter != nil {
+			// 发射状态变化事件
+			_ = a.eventEmitter.EmitStateChanged(from, m.ToState, m.Trigger)
+		}
+		return err
+	case *GetStateMessage:
+		// 状态查询消息（这里简化处理，实际可以通过响应消息返回）
+		return nil
+	case *SuspendMessage:
+		return a.transition(StateSuspended, m.Reason)
+	case *ResumeMessage:
+		return a.transition(StateOnline, m.Reason)
+	default:
+		return nil
+	}
+}
+
+// handleLegacyMessage 处理旧格式消息（向后兼容）
+// 注意：这个方法接收 interface{} 而不是 Message，用于处理未实现 Message 接口的旧消息
+func (a *BaseResourceActor) handleLegacyMessage(ctx context.Context, msg interface{}) error {
+	// 首先尝试将 msg 转换为 Message（如果实现了 Message 接口）
+	if msgMsg, ok := msg.(Message); ok {
+		// 如果实现了 Message 接口，应该已经被上面的 switch 处理了
+		// 这里不应该到达，但为了安全起见，我们再次尝试分类处理
+		return a.Receive(ctx, msgMsg)
+	}
+	
+	// 尝试找到能处理此消息的 Capacity（作为 capacities.Message）
 	var capMsg capacities.Message = msg
 	for _, capacity := range a.capabilities {
 		if capacity.CanHandle(capMsg) {
 			return capacity.Execute(ctx, capMsg)
 		}
 	}
-
-	// 如果没有找到对应的 Capacity，使用默认行为
-	if a.BaseActor.behavior != nil {
-		_, err := a.BaseActor.behavior.Handle(ctx, msg)
-		return err
-	}
-
-	// 如果也没有默认行为，返回错误
-	return fmt.Errorf("no capacity can handle message type %T", msg)
+	
+	// 如果没有找到对应的 Capacity，返回错误
+	return fmt.Errorf("no capacity can handle message type %T (legacy message)", msg)
 }
 
-// Start 启动 Actor（扩展基类方法，启动所有需要订阅的 Capacity）
+// setBehaviorState 设置行为状态
+func (a *BaseResourceActor) setBehaviorState(state *BehaviorState) {
+	a.behaviorMu.Lock()
+	defer a.behaviorMu.Unlock()
+	a.behaviorState = state
+}
+
+// clearBehaviorState 清除行为状态
+func (a *BaseResourceActor) clearBehaviorState() {
+	a.behaviorMu.Lock()
+	defer a.behaviorMu.Unlock()
+	a.behaviorState = nil
+}
+
+// GetBehaviorState 获取当前行为状态
+func (a *BaseResourceActor) GetBehaviorState() *BehaviorState {
+	a.behaviorMu.RLock()
+	defer a.behaviorMu.RUnlock()
+	if a.behaviorState == nil {
+		return nil
+	}
+	// 返回副本
+	state := *a.behaviorState
+	return &state
+}
+
+// applyEffects 应用效果（状态变化和事件）
+func (a *BaseResourceActor) applyEffects(effects []capacities.Effect) {
+	for _, effect := range effects {
+		// 应用状态变化
+		for _, stateChange := range effect.StateChanges {
+			setPropMsg := &SetPropertyMessage{
+				Name:  stateChange.Property,
+				Value: stateChange.ToValue,
+			}
+			_ = a.Send(setPropMsg)
+		}
+		
+		// 发射事件
+		for _, event := range effect.Events {
+			_ = a.eventEmitter.Emit(Event{
+				Type:    EventType(event.Type),
+				Payload: event.Payload,
+			})
+		}
+	}
+}
+
+// Start 启动 Actor（扩展基类方法，启动所有需要订阅的 Capacity 和所有 Bindings）
 func (a *BaseResourceActor) Start(ctx context.Context) error {
+	// 初始化事件发射器（如果还没有）
+	if a.eventEmitter == nil && a.BaseActor.system != nil {
+		a.eventEmitter = NewBaseEventEmitter(a.resourceID, a.BaseActor.system)
+	}
+	
 	// 先调用基类的 Start
 	if err := a.BaseActor.Start(ctx); err != nil {
 		return err
@@ -134,7 +520,91 @@ func (a *BaseResourceActor) Start(ctx context.Context) error {
 		}
 	}
 
+	// 启动所有外部绑定
+	for bindingType, binding := range a.bindings {
+		if err := binding.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start binding %s: %w", bindingType, err)
+		}
+	}
+
+	// 转换状态为在线
+	from := a.currentState
+	if err := a.transition(StateOnline, "start"); err != nil {
+		return fmt.Errorf("failed to transition to online state: %w", err)
+	}
+	
+	// 发射启动事件
+	if a.eventEmitter != nil {
+		_ = a.eventEmitter.Emit(Event{
+			Type:    EventTypeActorStarted,
+			Payload: map[string]interface{}{"from": from},
+		})
+	}
+
 	return nil
+}
+
+// Stop 停止 Actor（扩展基类方法，停止所有 Bindings）
+func (a *BaseResourceActor) Stop() error {
+	// 转换状态为离线
+	from := a.currentState
+	if err := a.transition(StateOffline, "stop"); err != nil {
+		// 记录错误但不阻止停止
+	}
+	
+	// 发射停止事件
+	if a.eventEmitter != nil {
+		_ = a.eventEmitter.Emit(Event{
+			Type:    EventTypeActorStopped,
+			Payload: map[string]interface{}{"from": from},
+		})
+	}
+
+	// 停止所有外部绑定
+	for bindingType, binding := range a.bindings {
+		if err := binding.Stop(); err != nil {
+			// 记录错误但不阻止停止
+			_ = bindingType
+		}
+	}
+
+	// 调用基类的 Stop
+	return a.BaseActor.Stop()
+}
+
+// Suspend 挂起 Actor
+func (a *BaseResourceActor) Suspend(reason string) error {
+	from := a.currentState
+	if err := a.transition(StateSuspended, reason); err != nil {
+		return err
+	}
+	if a.eventEmitter != nil {
+		_ = a.eventEmitter.Emit(Event{
+			Type:    EventTypeActorSuspended,
+			Payload: map[string]interface{}{"from": from, "reason": reason},
+		})
+	}
+	return nil
+}
+
+// Resume 恢复 Actor
+func (a *BaseResourceActor) Resume(reason string) error {
+	from := a.currentState
+	if err := a.transition(StateOnline, reason); err != nil {
+		return err
+	}
+	if a.eventEmitter != nil {
+		_ = a.eventEmitter.Emit(Event{
+			Type:    EventTypeActorResumed,
+			Payload: map[string]interface{}{"from": from, "reason": reason},
+		})
+	}
+	return nil
+}
+
+// GetEventEmitter 获取事件发射器
+func (a *BaseResourceActor) GetEventEmitter() EventEmitter {
+	return a.eventEmitter
 }
 
 // GetRef 获取指定 Actor 的 ActorRef

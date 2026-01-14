@@ -120,32 +120,17 @@ func (k *Kernel) Open(resourceType string, resourceID string, flags int) (Resour
 
 // createResource 创建新资源
 func (k *Kernel) createResource(resourceType, resourceID string, typeDesc *meta.TypeDescriptor) error {
-	// 1. 构造 OWL Class URI
-	// 假设 URI 格式为 CIM 命名空间 + 类型名
-	owlClassURI := "http://www.iec.ch/TC57/CIM#" + resourceType
+	// 1. 创建基础资源 Actor（业务中立，不包含属性管理）
+	// 注意：Kernel 层是业务中立的，只创建最基础的资源 Actor
+	// 属性管理、快照等功能应该由业务层（如 CIM 适配层）通过扩展 Actor 实现
+	actor := actors.NewBaseResourceActor(resourceID, resourceType, nil)
 
-	// 2. 创建 Actor
-	// 使用 CIMResourceActor
-	actor := actors.NewCIMResourceActor(resourceID, owlClassURI, nil)
+	// 2. 根据类型定义添加 Capabilities
+	// 注意：Kernel 层是业务中立的，不应该直接创建 CIM 特定的 Capacity
+	// Capacity 应该由业务层（如 CIM 适配层）添加
+	// 这里暂时跳过 Capacity 添加，应该通过其他机制（如 Actor 工厂）处理
 
-	// 3. 根据类型定义添加 Capabilities
-	factory := actors.NewCapacityFactory()
-
-	// 获取所有能力（包括继承的）
-	capabilities := typeDesc.GetAllCapabilities()
-
-	for _, capDesc := range capabilities {
-		if capDesc.Name == "Control" || capDesc.Name == "SwitchControl" {
-			// 默认添加 CommandCapacity，这是最通用的
-			// ID 命名习惯: resourceID + "-command"
-			cmdCap, _ := factory.CreateCapacity("Command", resourceID+"-command")
-			if cmdCap != nil {
-				actor.AddCapacity(cmdCap)
-			}
-		}
-	}
-
-	// 4. 注册到 System
+	// 3. 注册到 System
 	if err := k.system.Register(actor); err != nil {
 		return err
 	}

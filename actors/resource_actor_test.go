@@ -5,7 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/uos-projects/uos-kernel/actors/capacities"
+	cimcapacities "github.com/uos-projects/uos-kernel/actors/cim/capacities"
+	"github.com/uos-projects/uos-kernel/actors/cim"
 )
 
 func TestBaseResourceActor(t *testing.T) {
@@ -20,8 +21,8 @@ func TestBaseResourceActor(t *testing.T) {
 		t.Errorf("Expected ResourceType 'ACLineSegment', got '%s'", actor.ResourceType())
 	}
 
-	// 添加能力
-	capacity := capacities.NewAccumulatorResetCapacity("ACC_RESET_1")
+	// 添加能力（使用 CIM 特定的 Capacity 进行测试）
+	capacity := cimcapacities.NewAccumulatorResetCapacity("ACC_RESET_1")
 	actor.AddCapacity(capacity)
 
 	if !actor.HasCapacity("AccumulatorResetCapacity") {
@@ -47,8 +48,8 @@ func TestBaseResourceActor(t *testing.T) {
 		t.Fatalf("Failed to start actor: %v", err)
 	}
 
-	// 发送消息
-	msg := &capacities.AccumulatorResetMessage{Value: 100}
+	// 发送消息（CIM 特定的消息类型）
+	msg := &cimcapacities.AccumulatorResetMessage{Value: 100}
 	actor.Send(msg)
 
 	// 等待处理
@@ -70,18 +71,21 @@ func TestBaseResourceActorReceive(t *testing.T) {
 	ctx := context.Background()
 	actor := NewBaseResourceActor("BE-G4", "SynchronousMachine", nil)
 
-	// 添加能力
-	capacity := capacities.NewRaiseLowerCommandCapacity("CMD_RL_1")
+	// 添加能力（使用 CIM 特定的 Capacity）
+	capacity := cimcapacities.NewRaiseLowerCommandCapacity("CMD_RL_1")
 	actor.AddCapacity(capacity)
 
-	// 测试消息路由
-	msg := &capacities.RaiseLowerCommandMessage{Delta: 10.0}
+	// 测试消息路由（CIM 特定的消息类型）
+	msg := &cimcapacities.RaiseLowerCommandMessage{Delta: 10.0}
 	if err := actor.Receive(ctx, msg); err != nil {
 		t.Errorf("Failed to receive message: %v", err)
 	}
 
-	// 测试不支持的消息类型
-	unsupportedMsg := &testPingMessage{From: "test"}
+	// 测试不支持的消息类型（使用简单的测试消息）
+	type testMessage struct {
+		Value string
+	}
+	unsupportedMsg := &testMessage{Value: "test"}
 	err := actor.Receive(ctx, unsupportedMsg)
 	if err == nil {
 		t.Error("Expected error for unsupported message type")
@@ -89,9 +93,11 @@ func TestBaseResourceActorReceive(t *testing.T) {
 }
 
 func TestCapacityFactory(t *testing.T) {
-	factory := NewCapacityFactory()
+	// 注意：CapacityFactory 现在是 CIM 特定的，应该使用 cim.NewCapacityFactory()
+	// 这里保留测试以验证 CIM Capacity 工厂功能
+	factory := cim.NewCapacityFactory()
 
-	// 测试创建各种 Capacity
+	// 测试创建各种 Capacity（CIM 特定的）
 	testCases := []struct {
 		controlType  string
 		controlID    string
@@ -127,21 +133,21 @@ func TestCapacityFactory(t *testing.T) {
 }
 
 func TestCapacityCanHandle(t *testing.T) {
-	// 测试 AccumulatorResetCapacity
-	accCapacity := capacities.NewAccumulatorResetCapacity("ACC_RESET_1")
-	if !accCapacity.CanHandle(&capacities.AccumulatorResetMessage{Value: 100}) {
+	// 测试 AccumulatorResetCapacity（CIM 特定的）
+	accCapacity := cimcapacities.NewAccumulatorResetCapacity("ACC_RESET_1")
+	if !accCapacity.CanHandle(&cimcapacities.AccumulatorResetMessage{Value: 100}) {
 		t.Error("AccumulatorResetCapacity should handle AccumulatorResetMessage")
 	}
-	if accCapacity.CanHandle(&capacities.CommandMessage{}) {
+	if accCapacity.CanHandle(&cimcapacities.CommandMessage{}) {
 		t.Error("AccumulatorResetCapacity should not handle CommandMessage")
 	}
 
-	// 测试 CommandCapacity
-	cmdCapacity := capacities.NewCommandCapacity("CMD_1")
-	if !cmdCapacity.CanHandle(&capacities.CommandMessage{Command: "open"}) {
+	// 测试 CommandCapacity（CIM 特定的）
+	cmdCapacity := cimcapacities.NewCommandCapacity("CMD_1")
+	if !cmdCapacity.CanHandle(&cimcapacities.CommandMessage{Command: "open"}) {
 		t.Error("CommandCapacity should handle CommandMessage")
 	}
-	if cmdCapacity.CanHandle(&capacities.AccumulatorResetMessage{}) {
+	if cmdCapacity.CanHandle(&cimcapacities.AccumulatorResetMessage{}) {
 		t.Error("CommandCapacity should not handle AccumulatorResetMessage")
 	}
 }

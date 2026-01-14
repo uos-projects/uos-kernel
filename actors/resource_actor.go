@@ -31,17 +31,12 @@ type ResourceActor interface {
 	Send(msg Message) bool
 }
 
-// PropertyHolder 属性持有者接口（可选，CIMResourceActor 实现）
+// PropertyHolder 属性持有者接口（业务中立）
+// 提供属性访问功能，不绑定任何特定领域模型
 type PropertyHolder interface {
 	// GetProperty 获取属性值
 	GetProperty(name string) (interface{}, bool)
 
-	// SetProperty 设置属性值
-	SetProperty(name string, value interface{})
-
 	// GetAllProperties 获取所有属性
 	GetAllProperties() map[string]interface{}
-
-	// GetOWLClassURI 获取 OWL 类 URI
-	GetOWLClassURI() string
 }

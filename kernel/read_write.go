@@ -12,8 +12,7 @@ type ActorState struct {
 	ResourceID   string
 	ResourceType string
 	Capabilities []string
-	OWLClassURI  string                 // OWL 类 URI（如果是 CIMResourceActor）
-	Properties   map[string]interface{} // 属性（如果是 CIMResourceActor）
+	Properties map[string]interface{} // 属性（如果是 PropertyHolder）
 }
 
 // Read 读取 Actor 状态
@@ -37,9 +36,8 @@ func (rm *Manager) Read(ctx context.Context, fd ResourceDescriptor) (*ActorState
 		Capabilities: actor.ListCapabilities(),
 	}
 
-	// 如果是 PropertyHolder（CIMResourceActor），获取属性
+	// 如果是 PropertyHolder，获取属性
 	if holder, ok := actor.(actors.PropertyHolder); ok {
-		state.OWLClassURI = holder.GetOWLClassURI()
 		state.Properties = holder.GetAllProperties()
 	}
 
@@ -67,18 +65,23 @@ func (rm *Manager) Write(ctx context.Context, fd ResourceDescriptor, req *WriteR
 	actor := resource.actor
 	resource.mu.RUnlock()
 
-	// 检查是否支持属性更新
-	holder, ok := actor.(actors.PropertyHolder)
-	if !ok {
-		// 如果 Actor 不支持属性更新，这里怎么处理？
-		// 可以返回错误，表示该资源不支持写入属性
+	// 检查是否支持属性更新（通过 PropertyHolder 接口）
+	if _, ok := actor.(actors.PropertyHolder); !ok {
+		// 如果 Actor 不支持属性更新，返回错误
 		return fmt.Errorf("resource %s does not support property updates", actor.ResourceID())
 	}
 
-	// 更新属性
+	// 更新属性（通过消息驱动）
 	if req.Updates != nil {
 		for key, value := range req.Updates {
-			holder.SetProperty(key, value)
+			// 通过消息设置属性，符合 Actor 设计理念
+			setPropMsg := &actors.SetPropertyMessage{
+				Name:  key,
+				Value: value,
+			}
+			if !actor.Send(setPropMsg) {
+				return fmt.Errorf("failed to send SetProperty message for key %s", key)
+			}
 		}
 	}
 
