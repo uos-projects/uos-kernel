@@ -28,9 +28,9 @@ func (t *MaintenanceTask) MessageType() actors.MessageCategory {
 
 // MaintenancePlan 检修计划
 type MaintenancePlan struct {
-	PlanID             string
-	DeviceID           string
-	Interval           time.Duration // 检修间隔
+	PlanID              string
+	DeviceID            string
+	Interval            time.Duration // 检修间隔
 	NextMaintenanceTime time.Time
 }
 
@@ -99,7 +99,7 @@ func (d *DispatcherActor) handleDeviceAbnormalEvent(ctx context.Context, event *
 
 	// 创建紧急检修任务
 	task := d.createEmergencyMaintenanceTask(event)
-	
+
 	d.tasksMu.Lock()
 	d.pendingTasks = append(d.pendingTasks, task)
 	d.tasksMu.Unlock()
@@ -119,7 +119,7 @@ func (d *DispatcherActor) handleMaintenanceRequiredEvent(ctx context.Context, ev
 
 	// 创建定期检修任务
 	task := d.createScheduledMaintenanceTask(event)
-	
+
 	d.tasksMu.Lock()
 	d.pendingTasks = append(d.pendingTasks, task)
 	d.tasksMu.Unlock()

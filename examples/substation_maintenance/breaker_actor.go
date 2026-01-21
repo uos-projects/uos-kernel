@@ -16,15 +16,15 @@ type BreakerActor struct {
 	*cim.CIMResourceActor
 
 	// 设备状态
-	isOpen bool
-	voltage float64
-	current float64
+	isOpen      bool
+	voltage     float64
+	current     float64
 	temperature float64 // 温度（用于异常检测）
 
 	// 状态监测
 	lastMaintenanceTime time.Time // 上次检修时间
-	operationHours     int64      // 运行小时数
-	startTime          time.Time  // 启动时间
+	operationHours      int64     // 运行小时数
+	startTime           time.Time // 启动时间
 
 	// 异常检测阈值
 	maxTemperature    float64
@@ -47,29 +47,39 @@ func NewBreakerActor(id string, name string) *BreakerActor {
 			"http://www.iec.ch/TC57/CIM#Breaker",
 			nil,
 		),
-		isOpen:             false, // 初始状态：关闭
-		voltage:             220.0, // 初始电压：220kV
-		current:             100.0, // 初始电流：100A
-		temperature:         45.0,   // 初始温度：45°C
+		isOpen:              false,                 // 初始状态：关闭
+		voltage:             220.0,                 // 初始电压：220kV
+		current:             100.0,                 // 初始电流：100A
+		temperature:         45.0,                  // 初始温度：45°C
 		lastMaintenanceTime: now.AddDate(0, -2, 0), // 2个月前检修过
 		operationHours:      0,
 		startTime:           now,
-		maxTemperature:      80.0,  // 最大温度：80°C
-		maxOperationHours:   1440,  // 最大运行小时数：60天（1440小时）
+		maxTemperature:      80.0, // 最大温度：80°C
+		maxOperationHours:   1440, // 最大运行小时数：60天（1440小时）
 	}
 
 	// 设置设备属性（通过消息驱动）
 	props := map[string]interface{}{
 		"name":                name,
-		"isOpen":             false,
-		"voltage":            220.0,
-		"current":            100.0,
-		"temperature":        45.0,
+		"isOpen":              false,
+		"voltage":             220.0,
+		"current":             100.0,
+		"temperature":         45.0,
 		"lastMaintenanceTime": actor.lastMaintenanceTime,
 	}
 	for k, v := range props {
 		msg := &actors.SetPropertyMessage{Name: k, Value: v}
 		actor.Send(msg)
+	}
+
+	// 注册断路器开关控制能力（BreakerSwitchingCapacity）
+	switchingCap := NewBreakerSwitchingCapacity(actor)
+	actor.AddCapacity(switchingCap)
+
+	// 添加模拟设备绑定（通过 Binding 模拟真实世界反馈）
+	binding := NewSimulatedBreakerBinding(actor.ResourceID())
+	if err := actor.AddBinding(binding); err != nil {
+		fmt.Printf("failed to add simulated breaker binding: %v\n", err)
 	}
 
 	return actor
@@ -108,7 +118,7 @@ func (b *BreakerActor) monitorStatus(ctx context.Context) {
 			return
 		case <-ticker.C:
 			b.mu.Lock()
-			
+
 			// 模拟温度变化（实际应该从传感器读取）
 			if !b.isOpen {
 				// 运行时温度会波动
@@ -122,11 +132,11 @@ func (b *BreakerActor) monitorStatus(ctx context.Context) {
 				// 通过消息更新属性
 				msg := &actors.SetPropertyMessage{Name: "temperature", Value: b.temperature}
 				b.Send(msg)
-				
+
 				// 更新运行小时数
 				b.operationHours = int64(time.Since(b.startTime).Hours())
 			}
-			
+
 			// 检查温度异常
 			if b.temperature > b.maxTemperature {
 				b.mu.Unlock()
@@ -136,7 +146,7 @@ func (b *BreakerActor) monitorStatus(ctx context.Context) {
 				})
 				b.mu.Lock()
 			}
-			
+
 			// 检查运行时间（需要检修）
 			hoursSinceMaintenance := int64(time.Since(b.lastMaintenanceTime).Hours())
 			if hoursSinceMaintenance > b.maxOperationHours {
@@ -144,7 +154,7 @@ func (b *BreakerActor) monitorStatus(ctx context.Context) {
 				b.emitMaintenanceRequiredEvent("scheduled", hoursSinceMaintenance)
 				b.mu.Lock()
 			}
-			
+
 			b.mu.Unlock()
 		}
 	}
@@ -177,9 +187,9 @@ func (b *BreakerActor) emitMaintenanceRequiredEvent(reason string, operationHour
 		DeviceID:            b.ResourceID(),
 		Reason:              reason,
 		LastMaintenanceTime: b.lastMaintenanceTime,
-		OperationHours:     operationHours,
+		OperationHours:      operationHours,
 		Details: map[string]interface{}{
-			"operationHours": operationHours,
+			"operationHours":    operationHours,
 			"maxOperationHours": b.maxOperationHours,
 		},
 		Timestamp: time.Now(),
@@ -198,25 +208,30 @@ func (b *BreakerActor) emitMaintenanceRequiredEvent(reason string, operationHour
 
 // Receive 重写消息处理逻辑
 func (b *BreakerActor) Receive(ctx context.Context, msg actors.Message) error {
-	// 处理断路器特定命令
-	switch cmd := msg.(type) {
-	case *OpenBreakerCommand:
-		return b.handleOpenBreaker(ctx, cmd)
-	case *CloseBreakerCommand:
-		return b.handleCloseBreaker(ctx, cmd)
+	// 先处理来自 Binding 的外部事件（设备反馈）
+	if ext, ok := msg.(*actors.ExternalEventMessage); ok && ext.BindingType == actors.BindingTypeDevice {
+		if ev, ok := ext.Event.(*BreakerDeviceEvent); ok {
+			switch ev.Action {
+			case "opened":
+				return b.doOpen(ctx, ev.Reason, ev.Operator)
+			case "closed":
+				return b.doClose(ctx, ev.Reason, ev.Operator)
+			}
+		}
 	}
 
-	// 其他消息交给基类处理
+	// 其他消息交给基类处理，由 BaseResourceActor 根据 Capacity 进行路由
 	return b.CIMResourceActor.Receive(ctx, msg)
 }
 
-// handleOpenBreaker 处理打开断路器命令
-func (b *BreakerActor) handleOpenBreaker(ctx context.Context, cmd *OpenBreakerCommand) error {
+// doOpen 执行断路器打开操作（Actor 内部领域方法）
+// 注意：不直接暴露给外部，只由 Capacity 调用
+func (b *BreakerActor) doOpen(ctx context.Context, reason, operator string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	fmt.Printf("[%s] 🔌 执行打开断路器操作，操作员：%s，原因：%s\n",
-		b.ResourceID(), cmd.Operator, cmd.Reason)
+		b.ResourceID(), operator, reason)
 
 	// 检查前置条件：断路器必须处于关闭状态
 	if b.isOpen {
@@ -237,13 +252,14 @@ func (b *BreakerActor) handleOpenBreaker(ctx context.Context, cmd *OpenBreakerCo
 	return nil
 }
 
-// handleCloseBreaker 处理关闭断路器命令
-func (b *BreakerActor) handleCloseBreaker(ctx context.Context, cmd *CloseBreakerCommand) error {
+// doClose 执行断路器关闭操作（Actor 内部领域方法）
+// 注意：不直接暴露给外部，只由 Capacity 调用
+func (b *BreakerActor) doClose(ctx context.Context, reason, operator string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	fmt.Printf("[%s] 🔌 执行关闭断路器操作，操作员：%s，原因：%s\n",
-		b.ResourceID(), cmd.Operator, cmd.Reason)
+		b.ResourceID(), operator, reason)
 
 	// 检查前置条件：断路器必须处于打开状态
 	if !b.isOpen {
@@ -286,11 +302,11 @@ func (b *BreakerActor) GetStatus() map[string]interface{} {
 
 	return map[string]interface{}{
 		"id":                  b.ResourceID(),
-		"isOpen":             b.isOpen,
-		"voltage":            b.voltage,
-		"current":            b.current,
-		"temperature":        b.temperature,
+		"isOpen":              b.isOpen,
+		"voltage":             b.voltage,
+		"current":             b.current,
+		"temperature":         b.temperature,
 		"lastMaintenanceTime": b.lastMaintenanceTime,
-		"operationHours":     b.operationHours,
+		"operationHours":      b.operationHours,
 	}
 }

@@ -34,7 +34,7 @@ type MaintenanceRequiredEvent struct {
 	DeviceID            string
 	Reason              string // "scheduled", "overdue", "abnormal"
 	LastMaintenanceTime time.Time
-	OperationHours     int64
+	OperationHours      int64
 	Details             map[string]interface{}
 	Timestamp           time.Time
 }

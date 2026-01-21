@@ -80,9 +80,9 @@ func (o *DispatcherOperatorActor) executeMaintenanceOperation(
 
 		cmd := &OpenBreakerCommand{
 			commandID: fmt.Sprintf("%s_open_%d", task.TaskID, i),
-			Reason:     fmt.Sprintf("检修操作：%s", task.Reason),
-			Operator:   o.operatorName,
-			TaskID:     task.TaskID,
+			Reason:    fmt.Sprintf("检修操作：%s", task.Reason),
+			Operator:  o.operatorName,
+			TaskID:    task.TaskID,
 		}
 
 		// 发送命令到设备 Actor
@@ -108,9 +108,9 @@ func (o *DispatcherOperatorActor) executeMaintenanceOperation(
 
 		cmd := &CloseBreakerCommand{
 			commandID: fmt.Sprintf("%s_close_%d", task.TaskID, i),
-			Reason:     fmt.Sprintf("检修完成，恢复供电"),
-			Operator:   o.operatorName,
-			TaskID:     task.TaskID,
+			Reason:    fmt.Sprintf("检修完成，恢复供电"),
+			Operator:  o.operatorName,
+			TaskID:    task.TaskID,
 		}
 
 		// 发送命令到设备 Actor
