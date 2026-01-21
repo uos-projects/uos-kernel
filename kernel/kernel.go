@@ -196,11 +196,28 @@ func (k *Kernel) Stat(ctx context.Context, fd ResourceDescriptor) (*ResourceStat
 		}
 	}
 
+	// 获取事件列表（如果 Actor 实现了 ResourceActor 接口）
+	var eventInfos []EventInfo
+	if actor, exists := k.resourceMgr.system.Get(state.ResourceID); exists {
+		if resourceActor, ok := actor.(actors.ResourceActor); ok {
+			eventDescs := resourceActor.ListEventDescriptors()
+			eventInfos = make([]EventInfo, len(eventDescs))
+			for i, eventDesc := range eventDescs {
+				eventInfos[i] = EventInfo{
+					Name:        eventDesc.Name,
+					EventType:   string(eventDesc.EventType),
+					Description: eventDesc.Description,
+				}
+			}
+		}
+	}
+
 	return &ResourceStat{
 		ResourceID:     state.ResourceID,
 		ResourceType:   resourceType,
 		TypeDescriptor: typeDesc,
 		Capabilities:   capDescs,
+		Events:         eventInfos,
 	}, nil
 }
 
@@ -296,12 +313,20 @@ type ResourceStat struct {
 	ResourceType   string
 	TypeDescriptor *meta.TypeDescriptor
 	Capabilities   []CapabilityInfo
+	Events         []EventInfo
 }
 
 // CapabilityInfo 能力信息
 type CapabilityInfo struct {
 	Name        string
 	Operations  []string
+	Description string
+}
+
+// EventInfo 事件信息
+type EventInfo struct {
+	Name        string
+	EventType   string
 	Description string
 }
 

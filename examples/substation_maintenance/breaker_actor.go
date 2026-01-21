@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
@@ -76,6 +77,9 @@ func NewBreakerActor(id string, name string) *BreakerActor {
 	switchingCap := NewBreakerSwitchingCapacity(actor)
 	actor.AddCapacity(switchingCap)
 
+	// 注册业务事件（参考 Capacity 管理）
+	actor.registerBusinessEvents()
+
 	// 添加模拟设备绑定（通过 Binding 模拟真实世界反馈）
 	binding := NewSimulatedBreakerBinding(actor.ResourceID())
 	if err := actor.AddBinding(binding); err != nil {
@@ -83,6 +87,29 @@ func NewBreakerActor(id string, name string) *BreakerActor {
 	}
 
 	return actor
+}
+
+// registerBusinessEvents 注册业务事件
+func (b *BreakerActor) registerBusinessEvents() {
+	// 注册设备异常事件
+	deviceAbnormalEventDesc := actors.NewEventDescriptor(
+		"DeviceAbnormalEvent",
+		actors.EventTypeStateChanged,
+		reflect.TypeOf((*DeviceAbnormalEvent)(nil)).Elem(),
+		"设备异常事件（温度异常、电压异常等）",
+		b.ResourceID(),
+	)
+	b.RegisterEvent(deviceAbnormalEventDesc)
+
+	// 注册需要检修事件
+	maintenanceRequiredEventDesc := actors.NewEventDescriptor(
+		"MaintenanceRequiredEvent",
+		actors.EventTypeStateChanged,
+		reflect.TypeOf((*MaintenanceRequiredEvent)(nil)).Elem(),
+		"需要检修事件（定期检修、异常检修等）",
+		b.ResourceID(),
+	)
+	b.RegisterEvent(maintenanceRequiredEventDesc)
 }
 
 // Start 启动 Actor（重写，启动状态监测）
@@ -220,8 +247,19 @@ func (b *BreakerActor) Receive(ctx context.Context, msg actors.Message) error {
 		}
 	}
 
+	// 处理完成检修命令
+	if cmd, ok := msg.(*CompleteMaintenanceCommand); ok {
+		return b.handleCompleteMaintenanceCommand(ctx, cmd)
+	}
+
 	// 其他消息交给基类处理，由 BaseResourceActor 根据 Capacity 进行路由
 	return b.CIMResourceActor.Receive(ctx, msg)
+}
+
+// handleCompleteMaintenanceCommand 处理完成检修命令
+func (b *BreakerActor) handleCompleteMaintenanceCommand(ctx context.Context, cmd *CompleteMaintenanceCommand) error {
+	b.CompleteMaintenance()
+	return nil
 }
 
 // doOpen 执行断路器打开操作（Actor 内部领域方法）

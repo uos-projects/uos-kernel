@@ -48,6 +48,15 @@ func main() {
 	operator := NewDispatcherOperatorActor("OP-001", "张三", system)
 	system.Register(operator)
 
+	// 创建并绑定操作员 Binding（模拟操作员行为）
+	operatorBinding := NewSimulatedOperatorBinding("OP-001", system)
+	if err := operator.AddBinding(operatorBinding); err != nil {
+		panic(fmt.Errorf("绑定操作员 Binding 失败: %w", err))
+	}
+	if err := operatorBinding.Start(ctx); err != nil {
+		panic(fmt.Errorf("启动操作员 Binding 失败: %w", err))
+	}
+
 	// 注册操作员到调度中心
 	dispatcher.RegisterOperator("OP-001")
 

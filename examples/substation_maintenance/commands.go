@@ -50,11 +50,15 @@ func (c *CloseBreakerCommand) CommandID() string {
 }
 
 // StartMaintenanceCommand 开始检修命令
+// 由调度中心发送给操作员，启动检修任务
 type StartMaintenanceCommand struct {
-	commandID string // 私有字段
-	TaskID    string
-	Operator  string
-	Devices   []string
+	commandID   string // 私有字段
+	TaskID      string
+	Type        string // "scheduled", "emergency"
+	Devices     []string
+	Description string
+	Reason      string
+	OperatorID  string // 操作员ID
 }
 
 func (c *StartMaintenanceCommand) MessageType() actors.MessageCategory {

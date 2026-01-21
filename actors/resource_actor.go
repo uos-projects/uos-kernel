@@ -29,6 +29,25 @@ type ResourceActor interface {
 
 	// Send 发送消息
 	Send(msg Message) bool
+
+	// ============================================================================
+	// 事件管理方法（参考 Capacity 管理）
+	// ============================================================================
+
+	// ListEvents 返回所有事件名称列表
+	ListEvents() []string
+
+	// HasEvent 检查是否能发出某种事件
+	HasEvent(eventName string) bool
+
+	// GetEvent 获取指定名称的事件描述符
+	GetEvent(eventName string) (*EventDescriptor, bool)
+
+	// ListEventDescriptors 返回所有事件描述符列表
+	ListEventDescriptors() []*EventDescriptor
+
+	// CanEmitEvent 检查是否能发出指定类型的事件
+	CanEmitEvent(eventType EventType, payload interface{}) bool
 }
 
 // PropertyHolder 属性持有者接口（业务中立）

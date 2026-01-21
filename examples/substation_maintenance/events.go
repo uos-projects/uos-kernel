@@ -47,6 +47,25 @@ func (e *MaintenanceRequiredEvent) SourceActorID() string {
 	return e.DeviceID
 }
 
+// MaintenanceTaskCreatedEvent 检修任务创建事件
+// 调度中心创建检修任务时发射此事件
+type MaintenanceTaskCreatedEvent struct {
+	TaskID      string
+	Type        string // "scheduled", "emergency"
+	Devices     []string
+	Description string
+	Reason      string
+	Timestamp   time.Time
+}
+
+func (e *MaintenanceTaskCreatedEvent) MessageType() actors.MessageCategory {
+	return actors.MessageCategoryCoordinationEvent
+}
+
+func (e *MaintenanceTaskCreatedEvent) SourceActorID() string {
+	return "DISPATCHER" // 调度中心 ID
+}
+
 // MaintenanceTaskAssignedEvent 检修任务分配事件
 // 调度中心将检修任务分配给操作员时发射此事件
 type MaintenanceTaskAssignedEvent struct {
@@ -62,6 +81,22 @@ func (e *MaintenanceTaskAssignedEvent) MessageType() actors.MessageCategory {
 }
 
 func (e *MaintenanceTaskAssignedEvent) SourceActorID() string {
+	return "DISPATCHER" // 调度中心 ID
+}
+
+// MaintenanceTaskUpdatedEvent 检修任务更新事件
+// 任务状态发生变化时发射此事件
+type MaintenanceTaskUpdatedEvent struct {
+	TaskID    string
+	Status    string // "pending", "assigned", "in_progress", "completed", "failed"
+	Timestamp time.Time
+}
+
+func (e *MaintenanceTaskUpdatedEvent) MessageType() actors.MessageCategory {
+	return actors.MessageCategoryCoordinationEvent
+}
+
+func (e *MaintenanceTaskUpdatedEvent) SourceActorID() string {
 	return "DISPATCHER" // 调度中心 ID
 }
 

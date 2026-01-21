@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
@@ -64,7 +65,43 @@ func NewDispatcherActor(system *actors.System) *DispatcherActor {
 		system:            system,
 	}
 
+	// 注册业务事件
+	actor.registerBusinessEvents()
+
 	return actor
+}
+
+// registerBusinessEvents 注册业务事件
+func (d *DispatcherActor) registerBusinessEvents() {
+	// 注册任务创建事件
+	taskCreatedEventDesc := actors.NewEventDescriptor(
+		"MaintenanceTaskCreatedEvent",
+		actors.EventTypeStateChanged,
+		reflect.TypeOf((*MaintenanceTaskCreatedEvent)(nil)).Elem(),
+		"检修任务创建事件",
+		d.ResourceID(),
+	)
+	d.RegisterEvent(taskCreatedEventDesc)
+
+	// 注册任务分配事件
+	taskAssignedEventDesc := actors.NewEventDescriptor(
+		"MaintenanceTaskAssignedEvent",
+		actors.EventTypeStateChanged,
+		reflect.TypeOf((*MaintenanceTaskAssignedEvent)(nil)).Elem(),
+		"检修任务分配事件",
+		d.ResourceID(),
+	)
+	d.RegisterEvent(taskAssignedEventDesc)
+
+	// 注册任务更新事件
+	taskUpdatedEventDesc := actors.NewEventDescriptor(
+		"MaintenanceTaskUpdatedEvent",
+		actors.EventTypeStateChanged,
+		reflect.TypeOf((*MaintenanceTaskUpdatedEvent)(nil)).Elem(),
+		"检修任务更新事件",
+		d.ResourceID(),
+	)
+	d.RegisterEvent(taskUpdatedEventDesc)
 }
 
 // RegisterOperator 注册操作员
@@ -75,12 +112,12 @@ func (d *DispatcherActor) RegisterOperator(operatorID string) {
 
 // Receive 重写消息处理逻辑
 func (d *DispatcherActor) Receive(ctx context.Context, msg actors.Message) error {
-	// 处理设备事件
+	// 处理世界事件（Coordination Events）
 	switch event := msg.(type) {
 	case *DeviceAbnormalEvent:
-		return d.handleDeviceAbnormalEvent(ctx, event)
+		return d.handleWorldEvent(ctx, event)
 	case *MaintenanceRequiredEvent:
-		return d.handleMaintenanceRequiredEvent(ctx, event)
+		return d.handleWorldEvent(ctx, event)
 	case *MaintenanceCompletedEvent:
 		return d.handleMaintenanceCompletedEvent(ctx, event)
 	}
@@ -89,44 +126,43 @@ func (d *DispatcherActor) Receive(ctx context.Context, msg actors.Message) error
 	return d.BaseResourceActor.Receive(ctx, msg)
 }
 
-// handleDeviceAbnormalEvent 处理设备异常事件
-func (d *DispatcherActor) handleDeviceAbnormalEvent(ctx context.Context, event *DeviceAbnormalEvent) error {
-	fmt.Printf("\n[调度中心] 📢 收到设备异常事件：\n")
-	fmt.Printf("  设备：%s\n", event.DeviceID)
-	fmt.Printf("  异常类型：%s\n", event.EventType)
-	fmt.Printf("  严重程度：%s\n", event.Severity)
-	fmt.Printf("  详情：%v\n", event.Details)
+// handleWorldEvent 处理世界事件（统一入口）
+func (d *DispatcherActor) handleWorldEvent(ctx context.Context, event actors.Message) error {
+	var task MaintenanceTask
 
-	// 创建紧急检修任务
-	task := d.createEmergencyMaintenanceTask(event)
+	switch e := event.(type) {
+	case *DeviceAbnormalEvent:
+		fmt.Printf("\n[调度中心] 📢 收到设备异常事件：\n")
+		fmt.Printf("  设备：%s\n", e.DeviceID)
+		fmt.Printf("  异常类型：%s\n", e.EventType)
+		fmt.Printf("  严重程度：%s\n", e.Severity)
+		fmt.Printf("  详情：%v\n", e.Details)
 
-	d.tasksMu.Lock()
-	d.pendingTasks = append(d.pendingTasks, task)
-	d.tasksMu.Unlock()
+		// 通过领域方法创建任务
+		task = d.createEmergencyTaskFrom(e)
 
-	fmt.Printf("[调度中心] ✅ 已创建紧急检修任务：%s\n", task.TaskID)
+	case *MaintenanceRequiredEvent:
+		fmt.Printf("\n[调度中心] 📢 收到检修需求事件：\n")
+		fmt.Printf("  设备：%s\n", e.DeviceID)
+		fmt.Printf("  原因：%s\n", e.Reason)
+		fmt.Printf("  运行小时数：%d\n", e.OperationHours)
 
-	// 分配给操作员
-	return d.assignTaskToOperator(task)
-}
+		// 通过领域方法创建任务
+		task = d.createScheduledTaskFrom(e)
 
-// handleMaintenanceRequiredEvent 处理需要检修事件
-func (d *DispatcherActor) handleMaintenanceRequiredEvent(ctx context.Context, event *MaintenanceRequiredEvent) error {
-	fmt.Printf("\n[调度中心] 📢 收到检修需求事件：\n")
-	fmt.Printf("  设备：%s\n", event.DeviceID)
-	fmt.Printf("  原因：%s\n", event.Reason)
-	fmt.Printf("  运行小时数：%d\n", event.OperationHours)
+	default:
+		return fmt.Errorf("unknown world event type: %T", event)
+	}
 
-	// 创建定期检修任务
-	task := d.createScheduledMaintenanceTask(event)
+	// 应用任务创建（更新内部状态）
+	d.applyTaskCreated(task)
 
-	d.tasksMu.Lock()
-	d.pendingTasks = append(d.pendingTasks, task)
-	d.tasksMu.Unlock()
+	// 发射任务创建事件
+	d.emitTaskCreatedEvent(task)
 
-	fmt.Printf("[调度中心] ✅ 已创建定期检修任务：%s\n", task.TaskID)
+	fmt.Printf("[调度中心] ✅ 已创建检修任务：%s\n", task.TaskID)
 
-	// 分配给操作员
+	// 分配给操作员（通过命令）
 	return d.assignTaskToOperator(task)
 }
 
@@ -137,21 +173,21 @@ func (d *DispatcherActor) handleMaintenanceCompletedEvent(ctx context.Context, e
 	fmt.Printf("  操作员：%s\n", event.OperatorID)
 	fmt.Printf("  结果：%s\n", event.Result)
 
-	// 更新任务状态
-	d.tasksMu.Lock()
-	for i, task := range d.pendingTasks {
-		if task.TaskID == event.TaskID {
-			d.pendingTasks[i].Status = event.Result
-			break
-		}
-	}
-	d.tasksMu.Unlock()
+	// 应用任务状态更新
+	d.applyTaskStatusUpdate(event.TaskID, event.Result)
+
+	// 发射任务更新事件
+	d.emitTaskUpdatedEvent(event.TaskID, event.Result)
 
 	return nil
 }
 
-// createEmergencyMaintenanceTask 创建紧急检修任务
-func (d *DispatcherActor) createEmergencyMaintenanceTask(event *DeviceAbnormalEvent) MaintenanceTask {
+// ============================================================================
+// 领域方法（Domain Methods）
+// ============================================================================
+
+// createEmergencyTaskFrom 从异常事件创建紧急检修任务（领域方法）
+func (d *DispatcherActor) createEmergencyTaskFrom(event *DeviceAbnormalEvent) MaintenanceTask {
 	return MaintenanceTask{
 		TaskID:      fmt.Sprintf("TASK-EMERGENCY-%d", time.Now().Unix()),
 		Type:        "emergency",
@@ -163,8 +199,8 @@ func (d *DispatcherActor) createEmergencyMaintenanceTask(event *DeviceAbnormalEv
 	}
 }
 
-// createScheduledMaintenanceTask 创建定期检修任务
-func (d *DispatcherActor) createScheduledMaintenanceTask(event *MaintenanceRequiredEvent) MaintenanceTask {
+// createScheduledTaskFrom 从定期事件创建定期检修任务（领域方法）
+func (d *DispatcherActor) createScheduledTaskFrom(event *MaintenanceRequiredEvent) MaintenanceTask {
 	return MaintenanceTask{
 		TaskID:      fmt.Sprintf("TASK-SCHEDULED-%d", time.Now().Unix()),
 		Type:        "scheduled",
@@ -176,7 +212,39 @@ func (d *DispatcherActor) createScheduledMaintenanceTask(event *MaintenanceRequi
 	}
 }
 
-// assignTaskToOperator 分配任务给操作员
+// applyTaskCreated 应用任务创建（更新内部状态）
+func (d *DispatcherActor) applyTaskCreated(task MaintenanceTask) {
+	d.tasksMu.Lock()
+	defer d.tasksMu.Unlock()
+	d.pendingTasks = append(d.pendingTasks, task)
+}
+
+// applyTaskAssigned 应用任务分配（更新内部状态）
+func (d *DispatcherActor) applyTaskAssigned(taskID string, operatorID string) {
+	d.tasksMu.Lock()
+	defer d.tasksMu.Unlock()
+	for i, task := range d.pendingTasks {
+		if task.TaskID == taskID {
+			d.pendingTasks[i].AssignedTo = operatorID
+			d.pendingTasks[i].Status = "assigned"
+			break
+		}
+	}
+}
+
+// applyTaskStatusUpdate 应用任务状态更新
+func (d *DispatcherActor) applyTaskStatusUpdate(taskID string, status string) {
+	d.tasksMu.Lock()
+	defer d.tasksMu.Unlock()
+	for i, task := range d.pendingTasks {
+		if task.TaskID == taskID {
+			d.pendingTasks[i].Status = status
+			break
+		}
+	}
+}
+
+// assignTaskToOperator 分配任务给操作员（通过命令）
 func (d *DispatcherActor) assignTaskToOperator(task MaintenanceTask) error {
 	if len(d.operators) == 0 {
 		return fmt.Errorf("没有可用的操作员")
@@ -184,41 +252,81 @@ func (d *DispatcherActor) assignTaskToOperator(task MaintenanceTask) error {
 
 	// 简单分配：选择第一个操作员（实际应用中可以实现更复杂的调度算法）
 	operatorID := d.operators[0]
-	task.AssignedTo = operatorID
-	task.Status = "assigned"
 
-	// 更新任务列表
-	d.tasksMu.Lock()
-	for i, t := range d.pendingTasks {
-		if t.TaskID == task.TaskID {
-			d.pendingTasks[i] = task
-			break
-		}
+	// 应用任务分配（更新内部状态）
+	d.applyTaskAssigned(task.TaskID, operatorID)
+
+	// 发送 StartMaintenanceCommand 给操作员（而不是直接传 MaintenanceTask）
+	cmd := &StartMaintenanceCommand{
+		TaskID:      task.TaskID,
+		Type:        task.Type,
+		Devices:     task.Devices,
+		Description: task.Description,
+		Reason:      task.Reason,
+		OperatorID:  operatorID,
 	}
-	d.tasksMu.Unlock()
 
-	// 发送任务给操作员
-	if err := d.system.Send(operatorID, &task); err != nil {
-		return fmt.Errorf("发送任务给操作员失败: %w", err)
+	if err := d.system.Send(operatorID, cmd); err != nil {
+		return fmt.Errorf("发送开始检修命令给操作员失败: %w", err)
 	}
 
 	// 发射任务分配事件
-	if emitter := d.GetEventEmitter(); emitter != nil {
-		_ = emitter.Emit(actors.Event{
-			Type: actors.EventTypeStateChanged,
-			Payload: &MaintenanceTaskAssignedEvent{
-				TaskID:     task.TaskID,
-				OperatorID: operatorID,
-				DeviceIDs:  task.Devices,
-				Reason:     task.Reason,
-				Timestamp:  time.Now(),
-			},
-		})
-	}
+	d.emitTaskAssignedEvent(task.TaskID, operatorID, task.Devices, task.Reason)
 
 	fmt.Printf("[调度中心] 📤 已将任务 %s 分配给操作员 %s\n", task.TaskID, operatorID)
 
 	return nil
+}
+
+// ============================================================================
+// 事件发射方法（Event Emission）
+// ============================================================================
+
+// emitTaskCreatedEvent 发射任务创建事件
+func (d *DispatcherActor) emitTaskCreatedEvent(task MaintenanceTask) {
+	if emitter := d.GetEventEmitter(); emitter != nil {
+		_ = emitter.Emit(actors.Event{
+			Type: actors.EventTypeStateChanged,
+			Payload: &MaintenanceTaskCreatedEvent{
+				TaskID:      task.TaskID,
+				Type:        task.Type,
+				Devices:     task.Devices,
+				Description: task.Description,
+				Reason:      task.Reason,
+				Timestamp:   task.CreatedAt,
+			},
+		})
+	}
+}
+
+// emitTaskAssignedEvent 发射任务分配事件
+func (d *DispatcherActor) emitTaskAssignedEvent(taskID string, operatorID string, deviceIDs []string, reason string) {
+	if emitter := d.GetEventEmitter(); emitter != nil {
+		_ = emitter.Emit(actors.Event{
+			Type: actors.EventTypeStateChanged,
+			Payload: &MaintenanceTaskAssignedEvent{
+				TaskID:     taskID,
+				OperatorID: operatorID,
+				DeviceIDs:  deviceIDs,
+				Reason:     reason,
+				Timestamp:  time.Now(),
+			},
+		})
+	}
+}
+
+// emitTaskUpdatedEvent 发射任务更新事件
+func (d *DispatcherActor) emitTaskUpdatedEvent(taskID string, status string) {
+	if emitter := d.GetEventEmitter(); emitter != nil {
+		_ = emitter.Emit(actors.Event{
+			Type: actors.EventTypeStateChanged,
+			Payload: &MaintenanceTaskUpdatedEvent{
+				TaskID:    taskID,
+				Status:    status,
+				Timestamp: time.Now(),
+			},
+		})
+	}
 }
 
 // GetPendingTasks 获取待处理任务列表
