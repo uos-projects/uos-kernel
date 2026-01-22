@@ -150,8 +150,7 @@ func simulateTemperatureAbnormal(system *actors.System, breaker *BreakerActor) {
 func displayDeviceStatus(breakers ...*BreakerActor) {
 	for _, breaker := range breakers {
 		status := breaker.GetStatus()
-		name, _ := breaker.CIMResourceActor.GetProperty("name")
-		fmt.Printf("%s (%s):\n", status["id"], name)
+		fmt.Printf("%s (%s):\n", status["id"], status["name"])
 		fmt.Printf("  状态：%s\n", map[bool]string{true: "打开", false: "关闭"}[status["isOpen"].(bool)])
 		fmt.Printf("  电压：%.2f kV\n", status["voltage"].(float64))
 		fmt.Printf("  电流：%.2f A\n", status["current"].(float64))

@@ -8,13 +8,15 @@ import (
 	"time"
 
 	"github.com/uos-projects/uos-kernel/actors"
-	"github.com/uos-projects/uos-kernel/actors/cim"
 )
 
 // BreakerActor 断路器 Actor
 // 代表一个真实的断路器设备，长期存在，持续监测状态
 type BreakerActor struct {
-	*cim.CIMResourceActor
+	*actors.BaseResourceActor
+
+	// 设备属性
+	name string // 设备名称
 
 	// 设备状态
 	isOpen      bool
@@ -43,10 +45,8 @@ type BreakerActor struct {
 func NewBreakerActor(id string, name string) *BreakerActor {
 	now := time.Now()
 	actor := &BreakerActor{
-		CIMResourceActor: cim.NewCIMResourceActor(
-			id,
-			"http://www.iec.ch/TC57/CIM#Breaker",
-		),
+		BaseResourceActor: actors.NewBaseResourceActor(id, "Breaker"),
+		name:                name,
 		isOpen:              false,                 // 初始状态：关闭
 		voltage:             220.0,                 // 初始电压：220kV
 		current:             100.0,                 // 初始电流：100A
@@ -114,7 +114,7 @@ func (b *BreakerActor) registerBusinessEvents() {
 // Start 启动 Actor（重写，启动状态监测）
 func (b *BreakerActor) Start(ctx context.Context) error {
 	// 调用基类 Start
-	if err := b.CIMResourceActor.Start(ctx); err != nil {
+	if err := b.BaseResourceActor.Start(ctx); err != nil {
 		return err
 	}
 
@@ -130,7 +130,7 @@ func (b *BreakerActor) Stop() error {
 	if b.monitorCancel != nil {
 		b.monitorCancel()
 	}
-	return b.CIMResourceActor.Stop()
+	return b.BaseResourceActor.Stop()
 }
 
 // monitorStatus 持续监测设备状态（长期存在的监测任务）
@@ -252,7 +252,7 @@ func (b *BreakerActor) Receive(ctx context.Context, msg actors.Message) error {
 	}
 
 	// 其他消息交给基类处理，由 BaseResourceActor 根据 Capacity 进行路由
-	return b.CIMResourceActor.Receive(ctx, msg)
+	return b.BaseResourceActor.Receive(ctx, msg)
 }
 
 // handleCompleteMaintenanceCommand 处理完成检修命令
@@ -339,6 +339,7 @@ func (b *BreakerActor) GetStatus() map[string]interface{} {
 
 	return map[string]interface{}{
 		"id":                  b.ResourceID(),
+		"name":                b.name,
 		"isOpen":              b.isOpen,
 		"voltage":             b.voltage,
 		"current":             b.current,

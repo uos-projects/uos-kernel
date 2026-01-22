@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/uos-projects/uos-kernel/actors"
-	cimcapacities "github.com/uos-projects/uos-kernel/actors/cim/capacities"
 )
 
 // ControlCommand 控制命令（类似 ioctl 的命令）
@@ -15,12 +14,10 @@ const (
 	// General Commands
 	CMD_GET_RESOURCE_INFO ControlCommand = iota + 0x1000
 	CMD_LIST_CAPABILITIES // 0x1001
+	CMD_LIST_EVENTS       // 0x1002
 
-	// Control Commands (Mapped to Capacities)
-	CMD_ACCUMULATOR_RESET // 0x1002
-	CMD_COMMAND           // 0x1003
-	CMD_RAISE_LOWER       // 0x1004
-	CMD_SET_POINT         // 0x1005
+	// Control Commands (通用控制命令，通过 Capacity 系统处理)
+	CMD_EXECUTE_CAPACITY // 0x1003 - 执行指定 Capacity 的命令
 )
 
 // System Commands
@@ -51,25 +48,8 @@ func (rm *Manager) RCtl(ctx context.Context, fd ResourceDescriptor, cmd ControlC
 	actor := resource.actor
 	resource.mu.RUnlock()
 
-	// 根据命令构造对应的 Control 消息
-	// 注意：这些消息类型是 CIM 特定的，Kernel 层不应该直接依赖
-	// 应该通过接口或消息工厂来处理
-	var msg actors.Message
-	var buildErr error
-
+	// 根据命令处理
 	switch cmd {
-	case CMD_ACCUMULATOR_RESET:
-		msg, buildErr = rm.buildAccumulatorResetMessage(arg)
-
-	case CMD_COMMAND:
-		msg, buildErr = rm.buildCommandMessage(arg)
-
-	case CMD_RAISE_LOWER:
-		msg, buildErr = rm.buildRaiseLowerMessage(arg)
-
-	case CMD_SET_POINT:
-		msg, buildErr = rm.buildSetPointMessage(arg)
-
 	case CMD_GET_RESOURCE_INFO:
 		// 查询类命令，直接返回结果
 		return &ResourceInfo{
@@ -79,6 +59,39 @@ func (rm *Manager) RCtl(ctx context.Context, fd ResourceDescriptor, cmd ControlC
 
 	case CMD_LIST_CAPABILITIES:
 		return actor.ListCapabilities(), nil
+
+	case CMD_LIST_EVENTS:
+		return actor.ListEvents(), nil
+
+	case CMD_EXECUTE_CAPACITY:
+		// 通用控制命令：通过 Capacity 名称和消息执行
+		// arg 应该是 map[string]interface{}，包含：
+		//   - "capacity": Capacity 名称
+		//   - "message": 要发送的消息（actors.Message）
+		req, ok := arg.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("invalid argument type for CMD_EXECUTE_CAPACITY, expected map[string]interface{}")
+		}
+
+		// 获取消息
+		msg, ok := req["message"].(actors.Message)
+		if !ok {
+			return nil, fmt.Errorf("message field is required and must implement actors.Message")
+		}
+
+		// 可选：验证 Capacity 是否存在
+		if capacityName, ok := req["capacity"].(string); ok {
+			if !actor.HasCapacity(capacityName) {
+				return nil, fmt.Errorf("capacity %s not found", capacityName)
+			}
+		}
+
+		// 通过 Actor.Send() 发送消息
+		// Actor 的 Receive() 会自动路由到对应的 Capacity
+		if !actor.Send(msg) {
+			return nil, fmt.Errorf("failed to send control message: mailbox full")
+		}
+		return nil, nil
 
 	case CMD_SYNC:
 		// 强制同步状态到持久化层
@@ -96,98 +109,6 @@ func (rm *Manager) RCtl(ctx context.Context, fd ResourceDescriptor, cmd ControlC
 	default:
 		return nil, fmt.Errorf("unknown control command: %d", cmd)
 	}
-
-	if buildErr != nil {
-		return nil, buildErr
-	}
-
-	// 通过 Actor.Send() 发送消息
-	// Actor 的 Receive() 会自动路由到对应的 Capacity
-	if !actor.Send(msg) {
-		return nil, fmt.Errorf("failed to send control message: mailbox full")
-	}
-
-	return nil, nil
 }
 
-// 辅助函数：构造各种 Control 消息
-func (rm *Manager) buildAccumulatorResetMessage(arg ControlArg) (actors.Message, error) {
-	req, ok := arg.(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("invalid argument type for CMD_ACCUMULATOR_RESET")
-	}
-
-	value := 0
-	if v, ok := req["value"]; ok {
-		if fv, ok := v.(float64); ok {
-			value = int(fv)
-		} else if iv, ok := v.(int); ok {
-			value = iv
-		}
-	}
-
-	return &cimcapacities.AccumulatorResetMessage{Value: value}, nil
-}
-
-func (rm *Manager) buildCommandMessage(arg ControlArg) (actors.Message, error) {
-	req, ok := arg.(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("invalid argument type for CMD_COMMAND")
-	}
-
-	command := ""
-	if cmd, ok := req["command"].(string); ok {
-		command = cmd
-	}
-
-	value := 0
-	if v, ok := req["value"]; ok {
-		if fv, ok := v.(float64); ok {
-			value = int(fv)
-		} else if iv, ok := v.(int); ok {
-			value = iv
-		}
-	}
-
-	return &cimcapacities.CommandMessage{
-		Command: command,
-		Value:   value,
-	}, nil
-}
-
-func (rm *Manager) buildRaiseLowerMessage(arg ControlArg) (actors.Message, error) {
-	req, ok := arg.(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("invalid argument type for CMD_RAISE_LOWER")
-	}
-
-	delta := 0.0
-	if v, ok := req["delta"]; ok {
-		if fv, ok := v.(float64); ok {
-			delta = fv
-		} else if iv, ok := v.(int); ok {
-			delta = float64(iv)
-		}
-	}
-
-	return &cimcapacities.RaiseLowerCommandMessage{Delta: delta}, nil
-}
-
-func (rm *Manager) buildSetPointMessage(arg ControlArg) (actors.Message, error) {
-	req, ok := arg.(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("invalid argument type for CMD_SET_POINT")
-	}
-
-	value := 0.0
-	if v, ok := req["value"]; ok {
-		if fv, ok := v.(float64); ok {
-			value = fv
-		} else if iv, ok := v.(int); ok {
-			value = float64(iv)
-		}
-	}
-
-	return &cimcapacities.SetPointMessage{Value: value}, nil
-}
 

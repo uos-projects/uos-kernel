@@ -369,18 +369,19 @@ func getDescription(cap *meta.CapabilityDescriptor) string {
 }
 
 // convertIoctlToControlCommand 将ioctl命令转换为ControlCommand
+// 注意：已移除 CIM 特定的命令，现在使用通用的控制命令
 func convertIoctlToControlCommand(ioctlCmd int) ControlCommand {
 	// 映射ioctl命令到ControlCommand
-	// 这里需要根据实际的ioctl命令定义进行映射
+	// 通用命令映射
 	switch ioctlCmd {
+	case 0x1000:
+		return CMD_GET_RESOURCE_INFO
 	case 0x1001:
-		return CMD_ACCUMULATOR_RESET
+		return CMD_LIST_CAPABILITIES
 	case 0x1002:
-		return CMD_COMMAND
+		return CMD_LIST_EVENTS
 	case 0x1003:
-		return CMD_RAISE_LOWER
-	case 0x1004:
-		return CMD_SET_POINT
+		return CMD_EXECUTE_CAPACITY
 	default:
 		return ControlCommand(ioctlCmd)
 	}
