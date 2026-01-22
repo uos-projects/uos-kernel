@@ -25,31 +25,23 @@ type Actor interface {
 
 // BaseActor 是 Actor 的基础实现
 type BaseActor struct {
-	id       string
-	mailbox  chan Message
-	ctx      context.Context
-	cancel   context.CancelFunc
-	wg       sync.WaitGroup
-	behavior ActorBehavior
-	system   *System // System 引用，用于 Actor 之间通信
-}
-
-// ActorBehavior 定义 Actor 的行为逻辑
-type ActorBehavior interface {
-	// Handle 处理消息，返回是否继续处理
-	Handle(ctx context.Context, msg Message) (bool, error)
+	id      string
+	mailbox chan Message
+	ctx     context.Context
+	cancel  context.CancelFunc
+	wg      sync.WaitGroup
+	system  *System // System 引用，用于 Actor 之间通信
 }
 
 // NewBaseActor 创建一个新的基础 Actor
-func NewBaseActor(id string, behavior ActorBehavior) *BaseActor {
+func NewBaseActor(id string) *BaseActor {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &BaseActor{
-		id:       id,
-		mailbox:  make(chan Message, 100), // 带缓冲的邮箱
-		ctx:      ctx,
-		cancel:   cancel,
-		behavior: behavior,
-		system:   nil, // 将在注册到 System 时设置
+		id:      id,
+		mailbox: make(chan Message, 100), // 带缓冲的邮箱
+		ctx:     ctx,
+		cancel:  cancel,
+		system:  nil, // 将在注册到 System 时设置
 	}
 }
 
@@ -100,11 +92,9 @@ func (a *BaseActor) SendAsync(msg Message) {
 }
 
 // Receive 实现 Actor 接口
+// 注意：BaseActor 的 Receive 是空实现，子类（如 BaseResourceActor）应该重写此方法
 func (a *BaseActor) Receive(ctx context.Context, msg Message) error {
-	if a.behavior != nil {
-		_, err := a.behavior.Handle(ctx, msg)
-		return err
-	}
+	// BaseActor 不处理消息，子类应该重写此方法
 	return nil
 }
 

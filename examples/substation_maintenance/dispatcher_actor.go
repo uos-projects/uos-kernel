@@ -58,7 +58,7 @@ type DispatcherActor struct {
 // NewDispatcherActor 创建调度中心 Actor
 func NewDispatcherActor(system *actors.System) *DispatcherActor {
 	actor := &DispatcherActor{
-		BaseResourceActor: actors.NewBaseResourceActor("DISPATCHER", "Dispatcher", nil),
+		BaseResourceActor: actors.NewBaseResourceActor("DISPATCHER", "Dispatcher"),
 		maintenancePlans:  make([]MaintenancePlan, 0),
 		pendingTasks:      make([]MaintenanceTask, 0),
 		operators:         make([]string, 0),

@@ -24,7 +24,7 @@
 
 - **BaseActor**: Actor 的基础实现，包含邮箱（mailbox）和消息处理循环
 - **System**: Actor 系统管理器，负责 Actor 的注册、查找和消息路由
-- **ActorBehavior**: Actor 行为接口，定义消息处理逻辑
+- **Capacity**: Actor 能力接口，定义消息处理逻辑（已移除 ActorBehavior，统一使用 Capacity）
 - **Message**: 消息类型接口
 
 ### 1.2 文件结构

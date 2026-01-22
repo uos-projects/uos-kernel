@@ -28,7 +28,7 @@ type DispatcherOperatorActor struct {
 // NewDispatcherOperatorActor 创建调度操作员 Actor
 func NewDispatcherOperatorActor(id string, name string, system *actors.System) *DispatcherOperatorActor {
 	actor := &DispatcherOperatorActor{
-		BaseResourceActor: actors.NewBaseResourceActor(id, "DispatcherOperator", nil),
+		BaseResourceActor: actors.NewBaseResourceActor(id, "DispatcherOperator"),
 		operatorID:        id,
 		operatorName:      name,
 		system:            system,

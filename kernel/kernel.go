@@ -123,7 +123,7 @@ func (k *Kernel) createResource(resourceType, resourceID string, typeDesc *meta.
 	// 1. 创建基础资源 Actor（业务中立，不包含属性管理）
 	// 注意：Kernel 层是业务中立的，只创建最基础的资源 Actor
 	// 属性管理、快照等功能应该由业务层（如 CIM 适配层）通过扩展 Actor 实现
-	actor := actors.NewBaseResourceActor(resourceID, resourceType, nil)
+	actor := actors.NewBaseResourceActor(resourceID, resourceType)
 
 	// 2. 根据类型定义添加 Capabilities
 	// 注意：Kernel 层是业务中立的，不应该直接创建 CIM 特定的 Capacity

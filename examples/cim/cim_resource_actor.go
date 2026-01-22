@@ -36,13 +36,12 @@ type CIMResourceActor struct {
 func NewCIMResourceActor(
 	id string,
 	owlClassURI string,
-	behavior actors.ActorBehavior,
 ) *CIMResourceActor {
 	// 从 OWL URI 提取类名作为 resourceType
 	localName := extractLocalName(owlClassURI)
 
 	// 创建基础资源 Actor
-	baseResourceActor := actors.NewBaseResourceActor(id, localName, behavior)
+	baseResourceActor := actors.NewBaseResourceActor(id, localName)
 
 	// 初始化状态后端
 	stateBackend := state.NewMemoryStateBackend()

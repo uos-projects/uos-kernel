@@ -67,9 +67,8 @@ type BaseResourceActor struct {
 func NewBaseResourceActor(
 	id string,
 	resourceType string,
-	behavior ActorBehavior,
 ) *BaseResourceActor {
-	baseActor := NewBaseActor(id, behavior)
+	baseActor := NewBaseActor(id)
 	actor := &BaseResourceActor{
 		BaseActor:     baseActor,
 		resourceID:    id,
@@ -500,15 +499,8 @@ func (a *BaseResourceActor) Start(ctx context.Context) error {
 		return err
 	}
 
-	// 如果 Actor 实现了 EventRegistry 接口，自动注册声明的事件
-	if registry, ok := a.BaseActor.behavior.(EventRegistry); ok {
-		declaredEvents := registry.DeclaredEvents()
-		for _, eventDesc := range declaredEvents {
-			// 更新 ResourceID（确保与 Actor 一致）
-			eventDesc.ResourceID = a.resourceID
-			a.RegisterEvent(eventDesc)
-		}
-	}
+	// 注意：事件注册应该由子类在初始化时调用 RegisterEvent 方法完成
+	// 不再通过 EventRegistry 接口自动注册，因为 BaseResourceActor 已有 RegisterEvent 方法
 
 	// 启动所有需要订阅的 Capacity
 	for _, capacity := range a.capabilities {

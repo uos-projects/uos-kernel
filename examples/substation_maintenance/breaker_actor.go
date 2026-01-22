@@ -46,7 +46,6 @@ func NewBreakerActor(id string, name string) *BreakerActor {
 		CIMResourceActor: cim.NewCIMResourceActor(
 			id,
 			"http://www.iec.ch/TC57/CIM#Breaker",
-			nil,
 		),
 		isOpen:              false,                 // 初始状态：关闭
 		voltage:             220.0,                 // 初始电压：220kV

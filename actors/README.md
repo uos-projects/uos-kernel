@@ -41,30 +41,17 @@ import (
     "github.com/uos-projects/uos-kernel/actors"
 )
 
-// 实现 ActorBehavior 接口
-type myBehavior struct {
-    name string
-}
-
-func (b *myBehavior) Handle(ctx context.Context, msg actors.Message) (bool, error) {
-    switch m := msg.(type) {
-    case string:
-        fmt.Printf("[%s] Received: %s\n", b.name, m)
-    default:
-        fmt.Printf("[%s] Received: %v\n", b.name, msg)
-    }
-    return true, nil
-}
-
+// 创建资源 Actor（所有 Actor 都是 ResourceActor）
 func main() {
     ctx := context.Background()
     system := actors.NewSystem(ctx)
     defer system.Shutdown()
     
-    // 创建 Actor
-    behavior := &myBehavior{name: "my-actor"}
-    _, err := system.Spawn("my-actor", behavior)
-    if err != nil {
+    // 创建资源 Actor
+    actor := actors.NewBaseResourceActor("my-actor", "MyResourceType")
+    
+    // 注册到系统
+    if err := system.Register(actor); err != nil {
         panic(err)
     }
     
@@ -115,25 +102,6 @@ func main() {
 ```
 
 ## 自定义 Actor 行为
-
-### 实现 ActorBehavior 接口
-
-```go
-type MyBehavior struct {
-    state int
-}
-
-func (b *MyBehavior) Handle(ctx context.Context, msg actors.Message) (bool, error) {
-    switch m := msg.(type) {
-    case int:
-        b.state += m
-        fmt.Printf("State updated: %d\n", b.state)
-    case string:
-        fmt.Printf("Received: %s\n", m)
-    }
-    return true, nil // 返回 true 继续处理，false 停止
-}
-```
 
 ### 实现自定义 Capacity
 
@@ -200,7 +168,6 @@ System
   └── Actor
       ├── BaseActor
       │   ├── Mailbox (chan Message)
-      │   ├── Behavior (ActorBehavior)
       │   └── Context (context.Context)
       └── PowerSystemResourceActor
           ├── BaseActor (继承)

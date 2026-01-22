@@ -24,26 +24,7 @@ func NewSystem(ctx context.Context) *System {
 	}
 }
 
-// Spawn 创建一个新的 Actor 并启动它
-func (s *System) Spawn(id string, behavior ActorBehavior) (Actor, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, exists := s.actors[id]; exists {
-		return nil, fmt.Errorf("actor %s already exists", id)
-	}
-
-	actor := NewBaseActor(id, behavior)
-	actor.SetSystem(s) // 设置 System 引用
-	if err := actor.Start(s.ctx); err != nil {
-		return nil, err
-	}
-
-	s.actors[id] = actor
-	return actor, nil
-}
-
-// Register 注册一个已创建的 Actor（用于 CIMResourceActor 等）
+// Register 注册一个已创建的 Actor（用于 ResourceActor 等）
 func (s *System) Register(actor Actor) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
