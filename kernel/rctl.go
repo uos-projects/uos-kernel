@@ -13,8 +13,8 @@ type ControlCommand int32
 const (
 	// General Commands
 	CMD_GET_RESOURCE_INFO ControlCommand = iota + 0x1000
-	CMD_LIST_CAPABILITIES // 0x1001
-	CMD_LIST_EVENTS       // 0x1002
+	CMD_LIST_CAPABILITIES                // 0x1001
+	CMD_LIST_EVENTS                      // 0x1002
 
 	// Control Commands (通用控制命令，通过 Capacity 系统处理)
 	CMD_EXECUTE_CAPACITY // 0x1003 - 执行指定 Capacity 的命令
@@ -110,5 +110,3 @@ func (rm *Manager) RCtl(ctx context.Context, fd ResourceDescriptor, cmd ControlC
 		return nil, fmt.Errorf("unknown control command: %d", cmd)
 	}
 }
-
-

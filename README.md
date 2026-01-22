@@ -121,10 +121,6 @@ uos-kernel/
 │       ├── consumer.go
 │       └── mock_consumer.go
 │
-├── cim/                       # CIM 数据集和模式
-│   ├── datasets/             # CIM 数据集
-│   └── schemata/             # CIM 模式定义
-│
 ├── docs/                      # 设计文档
 │   ├── actors_system_discussion_20251209.md
 │   ├── posix_resource_service_layer_20251210.md
