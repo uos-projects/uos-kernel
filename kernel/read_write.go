@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/uos-projects/uos-kernel/actors"
+	"github.com/uos-projects/uos-kernel/actor"
 )
 
 // ActorState Actor 状态
@@ -26,18 +26,18 @@ func (rm *Manager) Read(ctx context.Context, fd ResourceDescriptor) (*ActorState
 	// 通过Resource访问Actor
 	resource := handle.resource
 	resource.mu.RLock()
-	actor := resource.actor
+	a := resource.actor
 	resource.mu.RUnlock()
 
 	// 构建基础状态
 	state := &ActorState{
-		ResourceID:   actor.ResourceID(),
-		ResourceType: actor.ResourceType(),
-		Capabilities: actor.ListCapabilities(),
+		ResourceID:   a.ResourceID(),
+		ResourceType: a.ResourceType(),
+		Capabilities: a.ListCapabilities(),
 	}
 
 	// 如果是 PropertyHolder，获取属性
-	if holder, ok := actor.(actors.PropertyHolder); ok {
+	if holder, ok := a.(actor.PropertyHolder); ok {
 		state.Properties = holder.GetAllProperties()
 	}
 
@@ -62,24 +62,24 @@ func (rm *Manager) Write(ctx context.Context, fd ResourceDescriptor, req *WriteR
 	// 通过Resource访问Actor
 	resource := handle.resource
 	resource.mu.RLock()
-	actor := resource.actor
+	a := resource.actor
 	resource.mu.RUnlock()
 
 	// 检查是否支持属性更新（通过 PropertyHolder 接口）
-	if _, ok := actor.(actors.PropertyHolder); !ok {
+	if _, ok := a.(actor.PropertyHolder); !ok {
 		// 如果 Actor 不支持属性更新，返回错误
-		return fmt.Errorf("resource %s does not support property updates", actor.ResourceID())
+		return fmt.Errorf("resource %s does not support property updates", a.ResourceID())
 	}
 
 	// 更新属性（通过消息驱动）
 	if req.Updates != nil {
 		for key, value := range req.Updates {
 			// 通过消息设置属性，符合 Actor 设计理念
-			setPropMsg := &actors.SetPropertyMessage{
+			setPropMsg := &actor.SetPropertyMessage{
 				Name:  key,
 				Value: value,
 			}
-			if !actor.Send(setPropMsg) {
+			if !a.Send(setPropMsg) {
 				return fmt.Errorf("failed to send SetProperty message for key %s", key)
 			}
 		}

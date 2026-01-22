@@ -1,7 +1,8 @@
-package actors
+package actor
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -84,6 +85,9 @@ func NewBaseEventEmitter(actorID string, system *System) *BaseEventEmitter {
 
 // AddHandler 添加事件处理器
 func (e *BaseEventEmitter) AddHandler(handler EventHandler) {
+	if e == nil {
+		return
+	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.handlers = append(e.handlers, handler)
@@ -103,6 +107,9 @@ func (e *BaseEventEmitter) RemoveHandler(handler EventHandler) {
 
 // Emit 发射事件
 func (e *BaseEventEmitter) Emit(event Event) error {
+	if e == nil {
+		return fmt.Errorf("event emitter is nil")
+	}
 	// 设置 ActorID 和时间戳（如果未设置）
 	if event.ActorID == "" {
 		event.ActorID = e.actorID
@@ -115,14 +122,17 @@ func (e *BaseEventEmitter) Emit(event Event) error {
 	e.mu.RLock()
 	handlers := make([]EventHandler, len(e.handlers))
 	copy(handlers, e.handlers)
+	handlerCount := len(handlers)
 	e.mu.RUnlock()
 	
-	for _, handler := range handlers {
-		// 异步处理事件（避免阻塞）
-		go func(h EventHandler) {
-			ctx := context.Background()
-			_ = h.HandleEvent(ctx, event)
-		}(handler)
+	if handlerCount > 0 {
+		for _, handler := range handlers {
+			// 异步处理事件（避免阻塞）
+			go func(h EventHandler) {
+				ctx := context.Background()
+				_ = h.HandleEvent(ctx, event)
+			}(handler)
+		}
 	}
 	
 	return nil

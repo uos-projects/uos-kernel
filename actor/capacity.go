@@ -1,13 +1,10 @@
-package capacities
+package actor
 
 import (
 	"context"
 	"fmt"
 	"reflect"
 )
-
-// Message 表示 Actor 之间传递的消息
-type Message interface{}
 
 // ============================================================================
 // 1. Command Shape - 可接受的命令类型
@@ -58,8 +55,8 @@ type Guards interface {
 type ExecutionMode string
 
 const (
-	ExecutionModeSync      ExecutionMode = "sync"      // 同步执行
-	ExecutionModeAsync     ExecutionMode = "async"     // 异步执行
+	ExecutionModeSync       ExecutionMode = "sync"        // 同步执行
+	ExecutionModeAsync      ExecutionMode = "async"       // 异步执行
 	ExecutionModeFireForget ExecutionMode = "fire_forget" // 发射后忘记
 )
 
@@ -97,8 +94,8 @@ type StateChange struct {
 	ToValue interface{}
 }
 
-// Event 事件
-type Event struct {
+// CapacityEvent 事件（用于 Capacity Effects，避免与 actor.Event 冲突）
+type CapacityEvent struct {
 	// Type 事件类型（如 "DevicePoweredOff"）
 	Type string
 	// Payload 事件负载
@@ -110,7 +107,7 @@ type Effect struct {
 	// StateChanges 状态变化列表
 	StateChanges []StateChange
 	// Events 事件列表
-	Events []Event
+	Events []CapacityEvent
 }
 
 // Effects 定义 Capacity 执行后的效果
@@ -120,7 +117,7 @@ type Effects interface {
 }
 
 // ============================================================================
-// Capacity 接口（扩展版，保持向后兼容）
+// Capacity 接口
 // ============================================================================
 
 // Capacity 定义了一个能力接口

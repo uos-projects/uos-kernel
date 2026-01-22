@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/uos-projects/uos-kernel/actors"
+	"github.com/uos-projects/uos-kernel/actor"
 )
 
 // OperatorDeviceEvent 表示来自操作员侧的状态反馈事件
@@ -26,15 +26,15 @@ type OperatorDeviceEvent struct {
 // - Actor 只反映状态变化（任务开始、步骤完成、任务完成等）
 // - 通过 ExternalEventMessage 反馈操作员的状态变化给 Actor
 type SimulatedOperatorBinding struct {
-	*actors.BaseBinding
+	*actor.BaseBinding
 
 	// 系统引用（用于发送命令到设备）
-	system *actors.System
+	system *actor.System
 }
 
 // NewSimulatedOperatorBinding 创建模拟操作员绑定
-func NewSimulatedOperatorBinding(resourceID string, system *actors.System) *SimulatedOperatorBinding {
-	base := actors.NewBaseBinding(actors.BindingTypeHuman, resourceID)
+func NewSimulatedOperatorBinding(resourceID string, system *actor.System) *SimulatedOperatorBinding {
+	base := actor.NewBaseBinding(actor.BindingTypeHuman, resourceID)
 	return &SimulatedOperatorBinding{
 		BaseBinding: base,
 		system:      system,
@@ -54,8 +54,8 @@ func (b *SimulatedOperatorBinding) Stop() error {
 // OnExternalEvent 外部事件入口（本示例未使用，保留以符合接口）
 func (b *SimulatedOperatorBinding) OnExternalEvent(ctx context.Context, event interface{}) error {
 	// 直接转发为 ExternalEventMessage
-	msg := &actors.ExternalEventMessage{
-		BindingType: actors.BindingTypeHuman,
+	msg := &actor.ExternalEventMessage{
+		BindingType: actor.BindingTypeHuman,
 		Event:       event,
 	}
 	return b.SendToActor(msg)

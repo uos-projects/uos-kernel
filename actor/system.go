@@ -1,4 +1,4 @@
-package actors
+package actor
 
 import (
 	"context"
@@ -25,6 +25,7 @@ func NewSystem(ctx context.Context) *System {
 }
 
 // Register 注册一个已创建的 Actor（用于 ResourceActor 等）
+// 注意：Register 不会自动启动 Actor，需要显式调用 Start()
 func (s *System) Register(actor Actor) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -34,13 +35,11 @@ func (s *System) Register(actor Actor) error {
 		return fmt.Errorf("actor %s already exists", id)
 	}
 
-	// 如果 Actor 还没有启动，启动它
-	if err := actor.Start(s.ctx); err != nil {
-		return fmt.Errorf("failed to start actor: %w", err)
-	}
-
-	// 设置 System 引用（如果是 BaseActor）
-	if baseActor, ok := actor.(*BaseActor); ok {
+	// 设置 System 引用
+	// 优先处理 BaseResourceActor（因为它重写了 SetSystem）
+	if resourceActor, ok := actor.(*BaseResourceActor); ok {
+		resourceActor.SetSystem(s)
+	} else if baseActor, ok := actor.(*BaseActor); ok {
 		baseActor.SetSystem(s)
 	}
 

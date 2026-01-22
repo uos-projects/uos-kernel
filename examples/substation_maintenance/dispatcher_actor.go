@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/uos-projects/uos-kernel/actors"
+	"github.com/uos-projects/uos-kernel/actor"
 )
 
 // MaintenanceTask 检修任务
@@ -23,8 +23,8 @@ type MaintenanceTask struct {
 	CreatedAt   time.Time
 }
 
-func (t *MaintenanceTask) MessageType() actors.MessageCategory {
-	return actors.MessageCategoryCoordinationEvent
+func (t *MaintenanceTask) MessageType() actor.MessageCategory {
+	return actor.MessageCategoryCoordinationEvent
 }
 
 // MaintenancePlan 检修计划
@@ -38,7 +38,7 @@ type MaintenancePlan struct {
 // DispatcherActor 调度中心 Actor
 // 接收设备异常事件和检修需求事件，制定检修计划并分配给操作员
 type DispatcherActor struct {
-	*actors.BaseResourceActor
+	*actor.BaseResourceActor
 
 	// 检修计划
 	maintenancePlans []MaintenancePlan
@@ -52,13 +52,13 @@ type DispatcherActor struct {
 	operators []string
 
 	// 系统引用（用于发送消息）
-	system *actors.System
+	system *actor.System
 }
 
 // NewDispatcherActor 创建调度中心 Actor
-func NewDispatcherActor(system *actors.System) *DispatcherActor {
-	actor := &DispatcherActor{
-		BaseResourceActor: actors.NewBaseResourceActor("DISPATCHER", "Dispatcher"),
+func NewDispatcherActor(system *actor.System) *DispatcherActor {
+	d := &DispatcherActor{
+		BaseResourceActor: actor.NewBaseResourceActor("DISPATCHER", "Dispatcher"),
 		maintenancePlans:  make([]MaintenancePlan, 0),
 		pendingTasks:      make([]MaintenanceTask, 0),
 		operators:         make([]string, 0),
@@ -66,17 +66,17 @@ func NewDispatcherActor(system *actors.System) *DispatcherActor {
 	}
 
 	// 注册业务事件
-	actor.registerBusinessEvents()
+	d.registerBusinessEvents()
 
-	return actor
+	return d
 }
 
 // registerBusinessEvents 注册业务事件
 func (d *DispatcherActor) registerBusinessEvents() {
 	// 注册任务创建事件
-	taskCreatedEventDesc := actors.NewEventDescriptor(
+	taskCreatedEventDesc := actor.NewEventDescriptor(
 		"MaintenanceTaskCreatedEvent",
-		actors.EventTypeStateChanged,
+		actor.EventTypeStateChanged,
 		reflect.TypeOf((*MaintenanceTaskCreatedEvent)(nil)).Elem(),
 		"检修任务创建事件",
 		d.ResourceID(),
@@ -84,9 +84,9 @@ func (d *DispatcherActor) registerBusinessEvents() {
 	d.RegisterEvent(taskCreatedEventDesc)
 
 	// 注册任务分配事件
-	taskAssignedEventDesc := actors.NewEventDescriptor(
+	taskAssignedEventDesc := actor.NewEventDescriptor(
 		"MaintenanceTaskAssignedEvent",
-		actors.EventTypeStateChanged,
+		actor.EventTypeStateChanged,
 		reflect.TypeOf((*MaintenanceTaskAssignedEvent)(nil)).Elem(),
 		"检修任务分配事件",
 		d.ResourceID(),
@@ -94,9 +94,9 @@ func (d *DispatcherActor) registerBusinessEvents() {
 	d.RegisterEvent(taskAssignedEventDesc)
 
 	// 注册任务更新事件
-	taskUpdatedEventDesc := actors.NewEventDescriptor(
+	taskUpdatedEventDesc := actor.NewEventDescriptor(
 		"MaintenanceTaskUpdatedEvent",
-		actors.EventTypeStateChanged,
+		actor.EventTypeStateChanged,
 		reflect.TypeOf((*MaintenanceTaskUpdatedEvent)(nil)).Elem(),
 		"检修任务更新事件",
 		d.ResourceID(),
@@ -111,8 +111,11 @@ func (d *DispatcherActor) RegisterOperator(operatorID string) {
 }
 
 // Receive 重写消息处理逻辑
-func (d *DispatcherActor) Receive(ctx context.Context, msg actors.Message) error {
-	// 处理世界事件（Coordination Events）
+func (d *DispatcherActor) Receive(ctx context.Context, msg actor.Message) error {
+	// 优先处理世界事件（Coordination Events）
+	// 注意：必须在基类 Receive() 之前处理，因为基类会根据 MessageType() 路由
+	// 而 MaintenanceRequiredEvent 等是 MessageCategoryCoordinationEvent，
+	// 会被基类的 handleCoordinationEvent() 的 default 分支忽略
 	switch event := msg.(type) {
 	case *DeviceAbnormalEvent:
 		return d.handleWorldEvent(ctx, event)
@@ -127,7 +130,7 @@ func (d *DispatcherActor) Receive(ctx context.Context, msg actors.Message) error
 }
 
 // handleWorldEvent 处理世界事件（统一入口）
-func (d *DispatcherActor) handleWorldEvent(ctx context.Context, event actors.Message) error {
+func (d *DispatcherActor) handleWorldEvent(ctx context.Context, event actor.Message) error {
 	var task MaintenanceTask
 
 	switch e := event.(type) {
@@ -285,8 +288,8 @@ func (d *DispatcherActor) assignTaskToOperator(task MaintenanceTask) error {
 // emitTaskCreatedEvent 发射任务创建事件
 func (d *DispatcherActor) emitTaskCreatedEvent(task MaintenanceTask) {
 	if emitter := d.GetEventEmitter(); emitter != nil {
-		_ = emitter.Emit(actors.Event{
-			Type: actors.EventTypeStateChanged,
+		_ = emitter.Emit(actor.Event{
+			Type: actor.EventTypeStateChanged,
 			Payload: &MaintenanceTaskCreatedEvent{
 				TaskID:      task.TaskID,
 				Type:        task.Type,
@@ -302,8 +305,8 @@ func (d *DispatcherActor) emitTaskCreatedEvent(task MaintenanceTask) {
 // emitTaskAssignedEvent 发射任务分配事件
 func (d *DispatcherActor) emitTaskAssignedEvent(taskID string, operatorID string, deviceIDs []string, reason string) {
 	if emitter := d.GetEventEmitter(); emitter != nil {
-		_ = emitter.Emit(actors.Event{
-			Type: actors.EventTypeStateChanged,
+		_ = emitter.Emit(actor.Event{
+			Type: actor.EventTypeStateChanged,
 			Payload: &MaintenanceTaskAssignedEvent{
 				TaskID:     taskID,
 				OperatorID: operatorID,
@@ -318,8 +321,8 @@ func (d *DispatcherActor) emitTaskAssignedEvent(taskID string, operatorID string
 // emitTaskUpdatedEvent 发射任务更新事件
 func (d *DispatcherActor) emitTaskUpdatedEvent(taskID string, status string) {
 	if emitter := d.GetEventEmitter(); emitter != nil {
-		_ = emitter.Emit(actors.Event{
-			Type: actors.EventTypeStateChanged,
+		_ = emitter.Emit(actor.Event{
+			Type: actor.EventTypeStateChanged,
 			Payload: &MaintenanceTaskUpdatedEvent{
 				TaskID:    taskID,
 				Status:    status,

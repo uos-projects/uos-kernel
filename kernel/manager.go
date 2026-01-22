@@ -5,7 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/uos-projects/uos-kernel/actors"
+	"github.com/uos-projects/uos-kernel/actor"
 )
 
 // ResourceDescriptor 资源描述符（类似文件描述符）
@@ -21,7 +21,7 @@ const (
 // 每个resourceID对应一个Resource，管理资源的引用计数和排他性
 type Resource struct {
 	resourceID string
-	actor      actors.ResourceActor // 使用接口，支持 BaseResourceActor 及其子类
+	actor      actor.ResourceActor // 使用接口，支持 BaseResourceActor 及其子类
 	refCount   int32                // 引用计数（有多少个描述符打开了这个资源）
 	exclusive  bool                 // 是否排他性资源（true表示只能被一个描述符打开）
 	mu         sync.RWMutex
@@ -36,7 +36,7 @@ type ResourceHandle struct {
 
 // Manager 资源管理器（类似文件系统）
 type Manager struct {
-	system    *actors.System
+	system    *actor.System
 	handles   map[ResourceDescriptor]*ResourceHandle // 描述符 -> Handle
 	resources map[string]*Resource                   // resourceID -> Resource
 	nextFD    int32                                  // 下一个可用的描述符
@@ -44,7 +44,7 @@ type Manager struct {
 }
 
 // NewManager 创建资源管理器
-func NewManager(system *actors.System) *Manager {
+func NewManager(system *actor.System) *Manager {
 	return &Manager{
 		system:    system,
 		handles:   make(map[ResourceDescriptor]*ResourceHandle),
@@ -66,13 +66,13 @@ func (rm *Manager) OpenWithExclusive(resourceID string, exclusive bool) (Resourc
 	defer rm.mu.Unlock()
 
 	// 检查资源是否存在
-	actor, exists := rm.system.Get(resourceID)
+	a, exists := rm.system.Get(resourceID)
 	if !exists {
 		return InvalidDescriptor, fmt.Errorf("resource %s not found", resourceID)
 	}
 
 	// 尝试转换为 ResourceActor 接口
-	resourceActor, ok := actor.(actors.ResourceActor)
+	resourceActor, ok := a.(actor.ResourceActor)
 	if !ok {
 		return InvalidDescriptor, fmt.Errorf("resource %s is not a ResourceActor", resourceID)
 	}

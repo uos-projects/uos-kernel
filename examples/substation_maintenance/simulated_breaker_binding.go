@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/uos-projects/uos-kernel/actors"
+	"github.com/uos-projects/uos-kernel/actor"
 )
 
 // BreakerDeviceEvent 表示来自设备侧的状态反馈事件
@@ -21,12 +21,12 @@ type BreakerDeviceEvent struct {
 // 2. 延迟一段时间
 // 3. 通过 ExternalEventMessage 把“设备状态变化”反馈给 Actor
 type SimulatedBreakerBinding struct {
-	*actors.BaseBinding
+	*actor.BaseBinding
 }
 
 // NewSimulatedBreakerBinding 创建模拟绑定
 func NewSimulatedBreakerBinding(resourceID string) *SimulatedBreakerBinding {
-	base := actors.NewBaseBinding(actors.BindingTypeDevice, resourceID)
+	base := actor.NewBaseBinding(actor.BindingTypeDevice, resourceID)
 	return &SimulatedBreakerBinding{BaseBinding: base}
 }
 
@@ -43,8 +43,8 @@ func (b *SimulatedBreakerBinding) Stop() error {
 // OnExternalEvent 外部事件入口（本示例未使用，保留以符合接口）
 func (b *SimulatedBreakerBinding) OnExternalEvent(ctx context.Context, event interface{}) error {
 	// 直接转发为 ExternalEventMessage
-	msg := &actors.ExternalEventMessage{
-		BindingType: actors.BindingTypeDevice,
+	msg := &actor.ExternalEventMessage{
+		BindingType: actor.BindingTypeDevice,
 		Event:       event,
 	}
 	return b.SendToActor(msg)

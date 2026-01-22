@@ -4,20 +4,20 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/uos-projects/uos-kernel/actors"
+	"github.com/uos-projects/uos-kernel/actor"
 )
 
 // DeviceBinding 设备协议绑定示例
 // 演示如何实现一个具体的 Binding
 type DeviceBinding struct {
-	*actors.BaseBinding
+	*actor.BaseBinding
 	deviceProtocol string // 设备协议类型（如 Modbus, OPC-UA 等）
 	deviceAddress  string // 设备地址
 }
 
 // NewDeviceBinding 创建设备绑定
 func NewDeviceBinding(resourceID, deviceProtocol, deviceAddress string) *DeviceBinding {
-	base := actors.NewBaseBinding(actors.BindingTypeDevice, resourceID)
+	base := actor.NewBaseBinding(actor.BindingTypeDevice, resourceID)
 	return &DeviceBinding{
 		BaseBinding:    base,
 		deviceProtocol: deviceProtocol,
@@ -48,8 +48,8 @@ func (b *DeviceBinding) OnExternalEvent(ctx context.Context, event interface{}) 
 	// 例如：设备状态变化、测量值更新等
 	
 	// 示例：转换为 ExternalEventMessage
-	msg := &actors.ExternalEventMessage{
-		BindingType: actors.BindingTypeDevice,
+		msg := &actor.ExternalEventMessage{
+			BindingType: actor.BindingTypeDevice,
 		Event:       event,
 	}
 	

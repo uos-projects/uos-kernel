@@ -1,4 +1,4 @@
-package actors
+package actor
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-// Message 接口已在 messages.go 中定义
+// Message 接口已在 message.go 中定义
 
 // Actor 接口定义了 Actor 的基本行为
 type Actor interface {

@@ -1,4 +1,4 @@
-package actors
+package actor
 
 import (
 	"time"
@@ -22,7 +22,3 @@ type ResourceSnapshot struct {
 	State interface{}
 }
 
-// Snapshot 表示 Actor 状态的快照（已废弃，使用 ResourceSnapshot）
-// 保留此类型以保持向后兼容，新代码应使用 ResourceSnapshot
-// Deprecated: 使用 ResourceSnapshot 代替
-type Snapshot = ResourceSnapshot

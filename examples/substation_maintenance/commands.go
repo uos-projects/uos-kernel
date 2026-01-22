@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/uos-projects/uos-kernel/actors"
+	"github.com/uos-projects/uos-kernel/actor"
 )
 
 // ============================================================================
@@ -19,8 +19,8 @@ type OpenBreakerCommand struct {
 	TaskID    string // 关联的检修任务 ID
 }
 
-func (c *OpenBreakerCommand) MessageType() actors.MessageCategory {
-	return actors.MessageCategoryCapabilityCommand
+func (c *OpenBreakerCommand) MessageType() actor.MessageCategory {
+	return actor.MessageCategoryCapabilityCommand
 }
 
 func (c *OpenBreakerCommand) CommandID() string {
@@ -38,8 +38,8 @@ type CloseBreakerCommand struct {
 	TaskID    string
 }
 
-func (c *CloseBreakerCommand) MessageType() actors.MessageCategory {
-	return actors.MessageCategoryCapabilityCommand
+func (c *CloseBreakerCommand) MessageType() actor.MessageCategory {
+	return actor.MessageCategoryCapabilityCommand
 }
 
 func (c *CloseBreakerCommand) CommandID() string {
@@ -61,8 +61,8 @@ type StartMaintenanceCommand struct {
 	OperatorID  string // 操作员ID
 }
 
-func (c *StartMaintenanceCommand) MessageType() actors.MessageCategory {
-	return actors.MessageCategoryCapabilityCommand
+func (c *StartMaintenanceCommand) MessageType() actor.MessageCategory {
+	return actor.MessageCategoryCapabilityCommand
 }
 
 func (c *StartMaintenanceCommand) CommandID() string {
@@ -80,8 +80,8 @@ type CompleteMaintenanceCommand struct {
 	Result    string
 }
 
-func (c *CompleteMaintenanceCommand) MessageType() actors.MessageCategory {
-	return actors.MessageCategoryCapabilityCommand
+func (c *CompleteMaintenanceCommand) MessageType() actor.MessageCategory {
+	return actor.MessageCategoryCapabilityCommand
 }
 
 func (c *CompleteMaintenanceCommand) CommandID() string {

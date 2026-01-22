@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/uos-projects/uos-kernel/actors"
+	"github.com/uos-projects/uos-kernel/actor"
 )
 
 func main() {
 	ctx := context.Background()
 
 	// 1. 创建 Actor 系统
-	system := actors.NewSystem(ctx)
+	system := actor.NewSystem(ctx)
 	defer system.Shutdown()
 
 	fmt.Println("=== 变电站停电检修操作场景演示 ===\n")
@@ -60,10 +60,7 @@ func main() {
 	// 注册操作员到调度中心
 	dispatcher.RegisterOperator("OP-001")
 
-	// 5. 设置事件处理器（调度中心监听设备事件）
-	setupEventHandlers(system, dispatcher, breaker1, breaker2, breaker3)
-
-	// 6. 启动所有 Actor
+	// 5. 启动所有 Actor（必须在注册事件处理器之前启动，确保 eventEmitter 已初始化）
 	fmt.Println("\n【启动】启动所有 Actor...")
 	if err := breaker1.Start(ctx); err != nil {
 		panic(err)
@@ -80,7 +77,10 @@ func main() {
 	if err := operator.Start(ctx); err != nil {
 		panic(err)
 	}
-	fmt.Println("✓ 所有 Actor 已启动\n")
+
+	// 6. 设置事件处理器（调度中心监听设备事件）
+	// 注意：必须在 Actor 启动后注册，确保 eventEmitter 已初始化
+	setupEventHandlers(system, dispatcher, breaker1, breaker2, breaker3)
 
 	// 7. 显示初始状态
 	fmt.Println("=== 初始状态 ===")
@@ -116,20 +116,57 @@ func main() {
 	fmt.Println("（实际应用中，Actor 会一直运行，持续监测和响应事件）")
 }
 
+// DispatcherEventHandler 调度中心事件处理器
+// 将设备 Actor 发射的事件转换为消息并发送给调度中心
+type DispatcherEventHandler struct {
+	system       *actor.System
+	dispatcherID string
+}
+
+// HandleEvent 处理事件，将事件转换为消息发送给调度中心
+func (h *DispatcherEventHandler) HandleEvent(ctx context.Context, event actor.Event) error {
+	// 从 Payload 中提取业务事件
+	switch payload := event.Payload.(type) {
+	case *MaintenanceRequiredEvent:
+		// 将 MaintenanceRequiredEvent 作为消息发送给调度中心
+		if err := h.system.Send(h.dispatcherID, payload); err != nil {
+			fmt.Printf("[事件处理器] ⚠️  发送检修事件到调度中心失败：%v\n", err)
+			return err
+		}
+		fmt.Printf("[事件处理器] ✅ 已将检修事件发送给调度中心：设备 %s\n", payload.DeviceID)
+		return nil
+	case *DeviceAbnormalEvent:
+		// 将 DeviceAbnormalEvent 作为消息发送给调度中心
+		if err := h.system.Send(h.dispatcherID, payload); err != nil {
+			fmt.Printf("[事件处理器] ⚠️  发送异常事件到调度中心失败：%v\n", err)
+			return err
+		}
+		fmt.Printf("[事件处理器] ✅ 已将异常事件发送给调度中心：设备 %s\n", payload.DeviceID)
+		return nil
+	default:
+		// 其他类型的事件不处理
+		return nil
+	}
+}
+
 // setupEventHandlers 设置事件处理器
 // 将设备事件转发给调度中心
-func setupEventHandlers(system *actors.System, dispatcher *DispatcherActor, breakers ...*BreakerActor) {
+func setupEventHandlers(system *actor.System, dispatcher *DispatcherActor, breakers ...*BreakerActor) {
+	// 创建事件处理器
+	handler := &DispatcherEventHandler{
+		system:       system,
+		dispatcherID: "DISPATCHER",
+	}
+
+	// 为每个设备 Actor 注册事件处理器
 	for _, breaker := range breakers {
-		// 为每个设备 Actor 添加事件处理器
-		if emitter := breaker.GetEventEmitter(); emitter != nil {
-			// 这里简化处理：直接通过 System 发送事件到调度中心
-			// 实际应用中可以使用事件总线
-		}
+		breaker.AddEventHandler(handler)
+		fmt.Printf("[事件处理器] ✅ 已为 %s 注册事件处理器\n", breaker.ResourceID())
 	}
 }
 
 // simulateTemperatureAbnormal 模拟温度异常
-func simulateTemperatureAbnormal(system *actors.System, breaker *BreakerActor) {
+func simulateTemperatureAbnormal(system *actor.System, breaker *BreakerActor) {
 	// 模拟温度突然升高
 	event := &DeviceAbnormalEvent{
 		DeviceID:  breaker.ResourceID(),

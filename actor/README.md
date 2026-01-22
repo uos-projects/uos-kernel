@@ -38,7 +38,7 @@ package main
 
 import (
     "context"
-    "github.com/uos-projects/uos-kernel/actors"
+    "github.com/uos-projects/uos-kernel/actor"
 )
 
 // 创建资源 Actor（所有 Actor 都是 ResourceActor）
@@ -67,7 +67,7 @@ package main
 
 import (
     "context"
-    "github.com/uos-projects/uos-kernel/actors"
+    "github.com/uos-projects/uos-kernel/actor"
 )
 
 func main() {

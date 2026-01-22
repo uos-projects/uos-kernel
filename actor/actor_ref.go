@@ -1,4 +1,4 @@
-package actors
+package actor
 
 // ActorRef 是对 Actor 的引用，用于 Actor 之间发送消息
 type ActorRef struct {

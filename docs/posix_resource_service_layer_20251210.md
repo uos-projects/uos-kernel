@@ -286,8 +286,8 @@ defer rm.Close(fd3)
 - `resource/read_write.go` - 资源状态访问
 - `resource/rctl.go` - 资源控制
 - `resource/example_test.go` - 使用示例
-- `actors/resource_actor.go` - Actor实现
-- `actors/capacities/measurement_base.go` - Measurement Capacity基类
+- `actor/resource_actor.go` - Actor实现
+- `actor/capacities/measurement_base.go` - Measurement Capacity基类
 
 ## 总结
 

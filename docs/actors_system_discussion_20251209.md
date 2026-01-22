@@ -30,7 +30,7 @@
 ### 1.2 文件结构
 
 ```
-actors/
+actor/
 ├── actor.go                    # 基础 Actor 实现
 ├── system.go                   # Actor 系统管理器
 ├── actor_ref.go                # ActorRef 实现（Actor 之间通信）
@@ -122,12 +122,12 @@ type Capacity interface {
 
 ### 3.2 删除不必要的文件
 
-- **删除 `actors/capacity.go`**: 只是类型别名，没有实际使用
-- **删除 `actors/example.go`**: 示例代码移到测试文件和独立的示例程序中
+- **删除 `actor/capacity.go`**: 只是类型别名，没有实际使用
+- **删除 `actor/example.go`**: 示例代码移到测试文件和独立的示例程序中
 
 ### 3.3 CapacityFactory 位置
 
-**决策**: 放在 `actors/` 目录下
+**决策**: 放在 `actor/` 目录下
 
 **理由**:
 - 它是 actors 系统的工具/服务
@@ -146,7 +146,7 @@ type Capacity interface {
 
 **核心组件**:
 
-1. **ActorRef** (`actors/actor_ref.go`):
+1. **ActorRef** (`actor/actor_ref.go`):
    - Actor 的引用，用于 Actor 之间发送消息
    - `Send()` / `Tell()` - 通过 ActorRef 发送消息
 
@@ -278,7 +278,7 @@ type ActorRefSetter interface {
 
 #### MQ Consumer 接口
 
-**位置**: `actors/mq/consumer.go`
+**位置**: `actor/mq/consumer.go`
 
 ```go
 type MQConsumer interface {
@@ -293,7 +293,7 @@ type MQConsumer interface {
 
 #### AnalogMeasurementCapacity
 
-**位置**: `actors/capacities/analog_measurement.go`
+**位置**: `actor/capacities/analog_measurement.go`
 
 **功能**:
 - 订阅 MQ topic（格式：`measurement/{measurementID}`）
@@ -461,7 +461,7 @@ func (k *KafkaConsumer) Subscribe(ctx context.Context, topic string) (<-chan *mq
 ✅ **决策**: 
 - Capacity 拆分到 `capacities/` 目录，每个 Capacity 一个文件
 - Message 与对应的 Capacity 放在同一个文件中
-- CapacityFactory 放在 `actors/` 目录下
+- CapacityFactory 放在 `actor/` 目录下
 
 ---
 
@@ -549,16 +549,16 @@ func (k *KafkaConsumer) Subscribe(ctx context.Context, topic string) (<-chan *mq
 ## 12. 相关文件
 
 ### 核心文件
-- `actors/capacities/accumulator_reset.go`: Capacity 接口定义和 AccumulatorResetCapacity
-- `actors/capacities/analog_measurement.go`: AnalogMeasurementCapacity 实现
-- `actors/mq/consumer.go`: MQ Consumer 接口
-- `actors/mq/mock_consumer.go`: Mock MQ Consumer 实现
-- `actors/resource_actor.go`: PowerSystemResourceActor（包含启动订阅逻辑）
-- `actors/capacity_factory.go`: Capacity 工厂（支持创建 Measurement Capacity）
+- `actor/capacities/accumulator_reset.go`: Capacity 接口定义和 AccumulatorResetCapacity
+- `actor/capacities/analog_measurement.go`: AnalogMeasurementCapacity 实现
+- `actor/mq/consumer.go`: MQ Consumer 接口
+- `actor/mq/mock_consumer.go`: Mock MQ Consumer 实现
+- `actor/resource_actor.go`: PowerSystemResourceActor（包含启动订阅逻辑）
+- `actor/capacity_factory.go`: Capacity 工厂（支持创建 Measurement Capacity）
 
 ### 示例和测试
-- `actors/cmd/measurement_example/main.go`: Measurement Capacity 使用示例
-- `actors/resource_actor_test.go`: 测试文件
+- `actor/cmd/measurement_example/main.go`: Measurement Capacity 使用示例
+- `actor/resource_actor_test.go`: 测试文件
 
 ---
 

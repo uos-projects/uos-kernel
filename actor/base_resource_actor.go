@@ -1,12 +1,10 @@
-package actors
+package actor
 
 import (
 	"context"
 	"fmt"
 	"reflect"
 	"sync"
-
-	"github.com/uos-projects/uos-kernel/actors/capacities"
 )
 
 // LifecycleState 生命周期状态
@@ -45,9 +43,9 @@ type BaseResourceActor struct {
 	*BaseActor
 	resourceID   string
 	resourceType string
-	capabilities map[string]capacities.Capacity // 能力名称 -> Capacity 实现
-	bindings     map[BindingType]Binding        // 绑定类型 -> Binding 实现
-	events       map[string]*EventDescriptor    // 事件名称 -> EventDescriptor
+	capabilities map[string]Capacity         // 能力名称 -> Capacity 实现
+	bindings     map[BindingType]Binding     // 绑定类型 -> Binding 实现
+	events       map[string]*EventDescriptor // 事件名称 -> EventDescriptor
 
 	// 生命周期状态机
 	currentState LifecycleState
@@ -73,7 +71,7 @@ func NewBaseResourceActor(
 		BaseActor:     baseActor,
 		resourceID:    id,
 		resourceType:  resourceType,
-		capabilities:  make(map[string]capacities.Capacity),
+		capabilities:  make(map[string]Capacity),
 		bindings:      make(map[BindingType]Binding),
 		events:        make(map[string]*EventDescriptor),
 		currentState:  StateOffline, // 初始状态为离线
@@ -104,7 +102,7 @@ func (a *BaseResourceActor) ResourceType() string {
 }
 
 // AddCapacity 添加一个能力
-func (a *BaseResourceActor) AddCapacity(capacity capacities.Capacity) {
+func (a *BaseResourceActor) AddCapacity(capacity Capacity) {
 	a.capabilities[capacity.Name()] = capacity
 }
 
@@ -120,7 +118,7 @@ func (a *BaseResourceActor) HasCapacity(capacityName string) bool {
 }
 
 // GetCapacity 获取指定名称的能力
-func (a *BaseResourceActor) GetCapacity(capacityName string) (capacities.Capacity, bool) {
+func (a *BaseResourceActor) GetCapacity(capacityName string) (Capacity, bool) {
 	cap, exists := a.capabilities[capacityName]
 	return cap, exists
 }
@@ -304,20 +302,16 @@ func (a *BaseResourceActor) Receive(ctx context.Context, msg Message) error {
 	case MessageCategoryInternal:
 		return a.handleInternalMessage(ctx, msg)
 	default:
-		// 兼容旧代码：如果消息没有实现 Message 接口，尝试按旧方式处理
-		return a.handleLegacyMessage(ctx, msg)
+		return fmt.Errorf("unknown message category: %s", msg.MessageType())
 	}
 }
 
 // handleCapabilityCommand 处理能力命令
 func (a *BaseResourceActor) handleCapabilityCommand(ctx context.Context, msg Message) error {
-	// 转换为 Capacity Message
-	var capMsg capacities.Message = msg
-
 	// 找到能处理此消息的 Capacity
-	var targetCapacity capacities.Capacity
+	var targetCapacity Capacity
 	for _, capacity := range a.capabilities {
-		if capacity.CanHandle(capMsg) {
+		if capacity.CanHandle(msg) {
 			targetCapacity = capacity
 			break
 		}
@@ -328,7 +322,7 @@ func (a *BaseResourceActor) handleCapabilityCommand(ctx context.Context, msg Mes
 	}
 
 	// 检查 Guards（如果 Capacity 实现了 Guards）
-	if guards, ok := targetCapacity.(capacities.Guards); ok {
+	if guards, ok := targetCapacity.(Guards); ok {
 		satisfied, failed, err := guards.CheckGuards(ctx, a)
 		if err != nil {
 			return fmt.Errorf("error checking guards: %w", err)
@@ -353,7 +347,7 @@ func (a *BaseResourceActor) handleCapabilityCommand(ctx context.Context, msg Mes
 	}
 
 	// 执行 Capacity
-	err := targetCapacity.Execute(ctx, capMsg)
+	err := targetCapacity.Execute(ctx, msg)
 
 	// 发射执行结果事件
 	if cmd, ok := msg.(CapabilityCommand); ok && a.eventEmitter != nil {
@@ -366,7 +360,7 @@ func (a *BaseResourceActor) handleCapabilityCommand(ctx context.Context, msg Mes
 
 	// 应用 Effects（如果 Capacity 实现了 Effects）
 	if err == nil {
-		if effects, ok := targetCapacity.(capacities.Effects); ok {
+		if effects, ok := targetCapacity.(Effects); ok {
 			a.applyEffects(effects.Effects())
 		}
 	}
@@ -389,7 +383,10 @@ func (a *BaseResourceActor) handleCoordinationEvent(ctx context.Context, msg Mes
 		}
 		return binding.ExecuteExternal(ctx, m.Command)
 	default:
-		// 其他协同事件：默认处理
+		// 其他协同事件：返回特殊错误，让子类有机会处理
+		// 子类可以在 Receive() 中先处理这些消息，如果未处理再调用基类
+		// 这里返回 nil 表示已处理（但实际上子类应该先处理）
+		// 注意：如果子类重写了 Receive()，应该先处理这些消息
 		return nil
 	}
 }
@@ -415,28 +412,6 @@ func (a *BaseResourceActor) handleInternalMessage(ctx context.Context, msg Messa
 	default:
 		return nil
 	}
-}
-
-// handleLegacyMessage 处理旧格式消息（向后兼容）
-// 注意：这个方法接收 interface{} 而不是 Message，用于处理未实现 Message 接口的旧消息
-func (a *BaseResourceActor) handleLegacyMessage(ctx context.Context, msg interface{}) error {
-	// 首先尝试将 msg 转换为 Message（如果实现了 Message 接口）
-	if msgMsg, ok := msg.(Message); ok {
-		// 如果实现了 Message 接口，应该已经被上面的 switch 处理了
-		// 这里不应该到达，但为了安全起见，我们再次尝试分类处理
-		return a.Receive(ctx, msgMsg)
-	}
-
-	// 尝试找到能处理此消息的 Capacity（作为 capacities.Message）
-	var capMsg capacities.Message = msg
-	for _, capacity := range a.capabilities {
-		if capacity.CanHandle(capMsg) {
-			return capacity.Execute(ctx, capMsg)
-		}
-	}
-
-	// 如果没有找到对应的 Capacity，返回错误
-	return fmt.Errorf("no capacity can handle message type %T (legacy message)", msg)
 }
 
 // setBehaviorState 设置行为状态
@@ -466,7 +441,7 @@ func (a *BaseResourceActor) GetBehaviorState() *BehaviorState {
 }
 
 // applyEffects 应用效果（状态变化和事件）
-func (a *BaseResourceActor) applyEffects(effects []capacities.Effect) {
+func (a *BaseResourceActor) applyEffects(effects []Effect) {
 	for _, effect := range effects {
 		// 应用状态变化
 		for _, stateChange := range effect.StateChanges {
@@ -510,7 +485,7 @@ func (a *BaseResourceActor) Start(ctx context.Context) error {
 		}); ok {
 			// 设置 Capacity 引用和 context
 			if capacitySetter, ok := capacity.(interface {
-				SetCapacityRef(capacities.Capacity, context.Context)
+				SetCapacityRef(Capacity, context.Context) error
 			}); ok {
 				capacitySetter.SetCapacityRef(capacity, ctx)
 			}
@@ -615,8 +590,51 @@ func (a *BaseResourceActor) Resume(reason string) error {
 }
 
 // GetEventEmitter 获取事件发射器
+// 如果 eventEmitter 为 nil，尝试初始化（延迟初始化）
 func (a *BaseResourceActor) GetEventEmitter() EventEmitter {
+	if a.eventEmitter == nil {
+		if a.BaseActor.system == nil {
+			// system 未设置，无法初始化 eventEmitter
+			return nil
+		}
+		a.eventsMu.Lock()
+		defer a.eventsMu.Unlock()
+		// 双重检查
+		if a.eventEmitter == nil {
+			a.eventEmitter = NewBaseEventEmitter(a.resourceID, a.BaseActor.system)
+		}
+	}
 	return a.eventEmitter
+}
+
+// AddEventHandler 添加事件处理器（便捷方法）
+func (a *BaseResourceActor) AddEventHandler(handler EventHandler) {
+	// 确保 eventEmitter 已初始化
+	if a.eventEmitter == nil {
+		if a.BaseActor.system == nil {
+			return
+		}
+		a.eventsMu.Lock()
+		if a.eventEmitter == nil {
+			a.eventEmitter = NewBaseEventEmitter(a.resourceID, a.BaseActor.system)
+		}
+		a.eventsMu.Unlock()
+	}
+	// 直接访问 eventEmitter 字段，避免通过接口转换
+	if a.eventEmitter != nil {
+		a.eventEmitter.AddHandler(handler)
+	}
+}
+
+// RemoveEventHandler 移除事件处理器（便捷方法）
+func (a *BaseResourceActor) RemoveEventHandler(handler EventHandler) {
+	emitter := a.GetEventEmitter()
+	if emitter == nil {
+		return
+	}
+	if baseEmitter, ok := emitter.(*BaseEventEmitter); ok {
+		baseEmitter.RemoveHandler(handler)
+	}
 }
 
 // ============================================================================

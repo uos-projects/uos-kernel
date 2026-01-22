@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/uos-projects/uos-kernel/actors"
+	"github.com/uos-projects/uos-kernel/actor"
 )
 
 // ControlCommand 控制命令（类似 ioctl 的命令）
@@ -45,7 +45,7 @@ func (rm *Manager) RCtl(ctx context.Context, fd ResourceDescriptor, cmd ControlC
 	// 通过Resource访问Actor
 	resource := handle.resource
 	resource.mu.RLock()
-	actor := resource.actor
+	a := resource.actor
 	resource.mu.RUnlock()
 
 	// 根据命令处理
@@ -53,42 +53,42 @@ func (rm *Manager) RCtl(ctx context.Context, fd ResourceDescriptor, cmd ControlC
 	case CMD_GET_RESOURCE_INFO:
 		// 查询类命令，直接返回结果
 		return &ResourceInfo{
-			ResourceID:   actor.ResourceID(),
-			ResourceType: actor.ResourceType(),
+			ResourceID:   a.ResourceID(),
+			ResourceType: a.ResourceType(),
 		}, nil
 
 	case CMD_LIST_CAPABILITIES:
-		return actor.ListCapabilities(), nil
+		return a.ListCapabilities(), nil
 
 	case CMD_LIST_EVENTS:
-		return actor.ListEvents(), nil
+		return a.ListEvents(), nil
 
 	case CMD_EXECUTE_CAPACITY:
 		// 通用控制命令：通过 Capacity 名称和消息执行
 		// arg 应该是 map[string]interface{}，包含：
 		//   - "capacity": Capacity 名称
-		//   - "message": 要发送的消息（actors.Message）
+		//   - "message": 要发送的消息（actor.Message）
 		req, ok := arg.(map[string]interface{})
 		if !ok {
 			return nil, fmt.Errorf("invalid argument type for CMD_EXECUTE_CAPACITY, expected map[string]interface{}")
 		}
 
 		// 获取消息
-		msg, ok := req["message"].(actors.Message)
+		msg, ok := req["message"].(actor.Message)
 		if !ok {
-			return nil, fmt.Errorf("message field is required and must implement actors.Message")
+			return nil, fmt.Errorf("message field is required and must implement actor.Message")
 		}
 
 		// 可选：验证 Capacity 是否存在
 		if capacityName, ok := req["capacity"].(string); ok {
-			if !actor.HasCapacity(capacityName) {
+			if !a.HasCapacity(capacityName) {
 				return nil, fmt.Errorf("capacity %s not found", capacityName)
 			}
 		}
 
 		// 通过 Actor.Send() 发送消息
 		// Actor 的 Receive() 会自动路由到对应的 Capacity
-		if !actor.Send(msg) {
+		if !a.Send(msg) {
 			return nil, fmt.Errorf("failed to send control message: mailbox full")
 		}
 		return nil, nil
@@ -96,7 +96,7 @@ func (rm *Manager) RCtl(ctx context.Context, fd ResourceDescriptor, cmd ControlC
 	case CMD_SYNC:
 		// 强制同步状态到持久化层
 		// 使用 PropertyHolder 接口（业务中立）
-		if propActor, ok := actor.(interface {
+		if propActor, ok := a.(interface {
 			SaveSnapshotAsync(context.Context) error
 		}); ok {
 			if err := propActor.SaveSnapshotAsync(ctx); err != nil {

@@ -7,13 +7,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/uos-projects/uos-kernel/actors"
+	"github.com/uos-projects/uos-kernel/actor"
 )
 
 // BreakerActor 断路器 Actor
 // 代表一个真实的断路器设备，长期存在，持续监测状态
 type BreakerActor struct {
-	*actors.BaseResourceActor
+	*actor.BaseResourceActor
 
 	// 设备属性
 	name string // 设备名称
@@ -44,8 +44,8 @@ type BreakerActor struct {
 // NewBreakerActor 创建断路器 Actor
 func NewBreakerActor(id string, name string) *BreakerActor {
 	now := time.Now()
-	actor := &BreakerActor{
-		BaseResourceActor: actors.NewBaseResourceActor(id, "Breaker"),
+	b := &BreakerActor{
+		BaseResourceActor:   actor.NewBaseResourceActor(id, "Breaker"),
 		name:                name,
 		isOpen:              false,                 // 初始状态：关闭
 		voltage:             220.0,                 // 初始电压：220kV
@@ -65,35 +65,35 @@ func NewBreakerActor(id string, name string) *BreakerActor {
 		"voltage":             220.0,
 		"current":             100.0,
 		"temperature":         45.0,
-		"lastMaintenanceTime": actor.lastMaintenanceTime,
+		"lastMaintenanceTime": b.lastMaintenanceTime,
 	}
 	for k, v := range props {
-		msg := &actors.SetPropertyMessage{Name: k, Value: v}
-		actor.Send(msg)
+		msg := &actor.SetPropertyMessage{Name: k, Value: v}
+		b.Send(msg)
 	}
 
 	// 注册断路器开关控制能力（BreakerSwitchingCapacity）
-	switchingCap := NewBreakerSwitchingCapacity(actor)
-	actor.AddCapacity(switchingCap)
+	switchingCap := NewBreakerSwitchingCapacity(b)
+	b.AddCapacity(switchingCap)
 
 	// 注册业务事件（参考 Capacity 管理）
-	actor.registerBusinessEvents()
+	b.registerBusinessEvents()
 
 	// 添加模拟设备绑定（通过 Binding 模拟真实世界反馈）
-	binding := NewSimulatedBreakerBinding(actor.ResourceID())
-	if err := actor.AddBinding(binding); err != nil {
+	binding := NewSimulatedBreakerBinding(b.ResourceID())
+	if err := b.AddBinding(binding); err != nil {
 		fmt.Printf("failed to add simulated breaker binding: %v\n", err)
 	}
 
-	return actor
+	return b
 }
 
 // registerBusinessEvents 注册业务事件
 func (b *BreakerActor) registerBusinessEvents() {
 	// 注册设备异常事件
-	deviceAbnormalEventDesc := actors.NewEventDescriptor(
+	deviceAbnormalEventDesc := actor.NewEventDescriptor(
 		"DeviceAbnormalEvent",
-		actors.EventTypeStateChanged,
+		actor.EventTypeStateChanged,
 		reflect.TypeOf((*DeviceAbnormalEvent)(nil)).Elem(),
 		"设备异常事件（温度异常、电压异常等）",
 		b.ResourceID(),
@@ -101,9 +101,9 @@ func (b *BreakerActor) registerBusinessEvents() {
 	b.RegisterEvent(deviceAbnormalEventDesc)
 
 	// 注册需要检修事件
-	maintenanceRequiredEventDesc := actors.NewEventDescriptor(
+	maintenanceRequiredEventDesc := actor.NewEventDescriptor(
 		"MaintenanceRequiredEvent",
-		actors.EventTypeStateChanged,
+		actor.EventTypeStateChanged,
 		reflect.TypeOf((*MaintenanceRequiredEvent)(nil)).Elem(),
 		"需要检修事件（定期检修、异常检修等）",
 		b.ResourceID(),
@@ -156,7 +156,7 @@ func (b *BreakerActor) monitorStatus(ctx context.Context) {
 					b.temperature = 90.0
 				}
 				// 通过消息更新属性
-				msg := &actors.SetPropertyMessage{Name: "temperature", Value: b.temperature}
+				msg := &actor.SetPropertyMessage{Name: "temperature", Value: b.temperature}
 				b.Send(msg)
 
 				// 更新运行小时数
@@ -197,9 +197,12 @@ func (b *BreakerActor) emitAbnormalEvent(eventType string, details map[string]in
 	}
 
 	// 通过事件发射器发射事件
-	if emitter := b.GetEventEmitter(); emitter != nil {
-		_ = emitter.Emit(actors.Event{
-			Type:    actors.EventTypeStateChanged,
+	// 事件处理器会将事件转换为消息并发送给调度中心
+	// 注意：GetEventEmitter() 会延迟初始化，如果 system 已设置，会自动创建 eventEmitter
+	emitter := b.GetEventEmitter()
+	if emitter != nil {
+		_ = emitter.Emit(actor.Event{
+			Type:    actor.EventTypeStateChanged,
 			Payload: event,
 		})
 	}
@@ -222,20 +225,28 @@ func (b *BreakerActor) emitMaintenanceRequiredEvent(reason string, operationHour
 	}
 
 	// 通过事件发射器发射事件
-	if emitter := b.GetEventEmitter(); emitter != nil {
-		_ = emitter.Emit(actors.Event{
-			Type:    actors.EventTypeStateChanged,
+	// 事件处理器会将事件转换为消息并发送给调度中心
+	// 注意：GetEventEmitter() 会延迟初始化，如果 system 已设置，会自动创建 eventEmitter
+	emitter := b.GetEventEmitter()
+	if emitter != nil {
+		err := emitter.Emit(actor.Event{
+			Type:    actor.EventTypeStateChanged,
 			Payload: event,
 		})
+		if err != nil {
+			fmt.Printf("[%s] ⚠️  发射检修事件失败：%v\n", b.ResourceID(), err)
+		}
+	} else {
+		fmt.Printf("[%s] ⚠️  eventEmitter 为 nil，无法发射事件\n", b.ResourceID())
 	}
 
 	fmt.Printf("[%s] 📅 需要检修：%s, 运行小时数：%d\n", b.ResourceID(), reason, operationHours)
 }
 
 // Receive 重写消息处理逻辑
-func (b *BreakerActor) Receive(ctx context.Context, msg actors.Message) error {
+func (b *BreakerActor) Receive(ctx context.Context, msg actor.Message) error {
 	// 先处理来自 Binding 的外部事件（设备反馈）
-	if ext, ok := msg.(*actors.ExternalEventMessage); ok && ext.BindingType == actors.BindingTypeDevice {
+	if ext, ok := msg.(*actor.ExternalEventMessage); ok && ext.BindingType == actor.BindingTypeDevice {
 		if ev, ok := ext.Event.(*BreakerDeviceEvent); ok {
 			switch ev.Action {
 			case "opened":
@@ -281,8 +292,8 @@ func (b *BreakerActor) doOpen(ctx context.Context, reason, operator string) erro
 	// 更新状态（通过消息驱动）
 	b.isOpen = true
 	b.current = 0.0 // 打开后电流为0
-	b.Send(&actors.SetPropertyMessage{Name: "isOpen", Value: true})
-	b.Send(&actors.SetPropertyMessage{Name: "current", Value: 0.0})
+	b.Send(&actor.SetPropertyMessage{Name: "isOpen", Value: true})
+	b.Send(&actor.SetPropertyMessage{Name: "current", Value: 0.0})
 
 	fmt.Printf("[%s] ✓ 断路器已打开，电流：%.2f A\n", b.ResourceID(), b.current)
 
@@ -309,8 +320,8 @@ func (b *BreakerActor) doClose(ctx context.Context, reason, operator string) err
 	// 更新状态（通过消息驱动）
 	b.isOpen = false
 	b.current = 100.0 // 关闭后恢复电流
-	b.Send(&actors.SetPropertyMessage{Name: "isOpen", Value: false})
-	b.Send(&actors.SetPropertyMessage{Name: "current", Value: 100.0})
+	b.Send(&actor.SetPropertyMessage{Name: "isOpen", Value: false})
+	b.Send(&actor.SetPropertyMessage{Name: "current", Value: 100.0})
 
 	fmt.Printf("[%s] ✓ 断路器已关闭，电流：%.2f A\n", b.ResourceID(), b.current)
 
@@ -326,8 +337,8 @@ func (b *BreakerActor) CompleteMaintenance() {
 	b.startTime = time.Now() // 重置启动时间
 	b.operationHours = 0
 	b.temperature = 45.0 // 重置温度
-	b.Send(&actors.SetPropertyMessage{Name: "lastMaintenanceTime", Value: b.lastMaintenanceTime})
-	b.Send(&actors.SetPropertyMessage{Name: "temperature", Value: b.temperature})
+	b.Send(&actor.SetPropertyMessage{Name: "lastMaintenanceTime", Value: b.lastMaintenanceTime})
+	b.Send(&actor.SetPropertyMessage{Name: "temperature", Value: b.temperature})
 
 	fmt.Printf("[%s] ✅ 检修完成，检修时间已更新\n", b.ResourceID())
 }

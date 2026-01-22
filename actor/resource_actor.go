@@ -1,8 +1,5 @@
-package actors
+package actor
 
-import (
-	"github.com/uos-projects/uos-kernel/actors/capacities"
-)
 
 // ResourceActor 资源 Actor 接口
 // 定义资源 Actor 的公共方法，供 ResourceManager 使用
@@ -22,10 +19,10 @@ type ResourceActor interface {
 	HasCapacity(capacityName string) bool
 
 	// GetCapacity 获取指定名称的能力
-	GetCapacity(capacityName string) (capacities.Capacity, bool)
+	GetCapacity(capacityName string) (Capacity, bool)
 
 	// AddCapacity 添加一个能力
-	AddCapacity(capacity capacities.Capacity)
+	AddCapacity(capacity Capacity)
 
 	// Send 发送消息
 	Send(msg Message) bool

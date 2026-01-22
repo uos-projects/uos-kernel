@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/uos-projects/uos-kernel/actors"
+	"github.com/uos-projects/uos-kernel/actor"
 )
 
 // ============================================================================
@@ -20,8 +20,8 @@ type DeviceAbnormalEvent struct {
 	Timestamp time.Time
 }
 
-func (e *DeviceAbnormalEvent) MessageType() actors.MessageCategory {
-	return actors.MessageCategoryCoordinationEvent
+func (e *DeviceAbnormalEvent) MessageType() actor.MessageCategory {
+	return actor.MessageCategoryCoordinationEvent
 }
 
 func (e *DeviceAbnormalEvent) SourceActorID() string {
@@ -39,8 +39,8 @@ type MaintenanceRequiredEvent struct {
 	Timestamp           time.Time
 }
 
-func (e *MaintenanceRequiredEvent) MessageType() actors.MessageCategory {
-	return actors.MessageCategoryCoordinationEvent
+func (e *MaintenanceRequiredEvent) MessageType() actor.MessageCategory {
+	return actor.MessageCategoryCoordinationEvent
 }
 
 func (e *MaintenanceRequiredEvent) SourceActorID() string {
@@ -58,8 +58,8 @@ type MaintenanceTaskCreatedEvent struct {
 	Timestamp   time.Time
 }
 
-func (e *MaintenanceTaskCreatedEvent) MessageType() actors.MessageCategory {
-	return actors.MessageCategoryCoordinationEvent
+func (e *MaintenanceTaskCreatedEvent) MessageType() actor.MessageCategory {
+	return actor.MessageCategoryCoordinationEvent
 }
 
 func (e *MaintenanceTaskCreatedEvent) SourceActorID() string {
@@ -76,8 +76,8 @@ type MaintenanceTaskAssignedEvent struct {
 	Timestamp  time.Time
 }
 
-func (e *MaintenanceTaskAssignedEvent) MessageType() actors.MessageCategory {
-	return actors.MessageCategoryCoordinationEvent
+func (e *MaintenanceTaskAssignedEvent) MessageType() actor.MessageCategory {
+	return actor.MessageCategoryCoordinationEvent
 }
 
 func (e *MaintenanceTaskAssignedEvent) SourceActorID() string {
@@ -92,8 +92,8 @@ type MaintenanceTaskUpdatedEvent struct {
 	Timestamp time.Time
 }
 
-func (e *MaintenanceTaskUpdatedEvent) MessageType() actors.MessageCategory {
-	return actors.MessageCategoryCoordinationEvent
+func (e *MaintenanceTaskUpdatedEvent) MessageType() actor.MessageCategory {
+	return actor.MessageCategoryCoordinationEvent
 }
 
 func (e *MaintenanceTaskUpdatedEvent) SourceActorID() string {
@@ -110,8 +110,8 @@ type MaintenanceCompletedEvent struct {
 	Timestamp  time.Time
 }
 
-func (e *MaintenanceCompletedEvent) MessageType() actors.MessageCategory {
-	return actors.MessageCategoryCoordinationEvent
+func (e *MaintenanceCompletedEvent) MessageType() actor.MessageCategory {
+	return actor.MessageCategoryCoordinationEvent
 }
 
 func (e *MaintenanceCompletedEvent) SourceActorID() string {

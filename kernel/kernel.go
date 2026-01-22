@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/uos-projects/uos-kernel/actors"
+	"github.com/uos-projects/uos-kernel/actor"
 	"github.com/uos-projects/uos-kernel/meta"
 )
 
@@ -20,7 +20,7 @@ const (
 // Kernel 资源内核（类似操作系统内核）
 // 面向用户的高级接口，提供类型验证和POSIX风格的系统调用
 type Kernel struct {
-	system       *actors.System // 保存 System 引用以支持创建 Actor
+	system       *actor.System // 保存 System 引用以支持创建 Actor
 	typeRegistry *meta.TypeRegistry
 	resourceMgr  *Manager
 	ioctlMapping map[int]meta.IoctlCommandDef
@@ -28,7 +28,7 @@ type Kernel struct {
 
 // NewKernel 创建资源内核（需要传入 Actor System）
 // 使用依赖注入方式，允许外部控制 System 的生命周期
-func NewKernel(system *actors.System) *Kernel {
+func NewKernel(system *actor.System) *Kernel {
 	return &Kernel{
 		system:       system,
 		typeRegistry: meta.NewTypeRegistry(),
@@ -40,7 +40,7 @@ func NewKernel(system *actors.System) *Kernel {
 // NewKernelWithContext 创建资源内核（自动创建 Actor System）
 // 简化使用方式，System 生命周期由 Kernel 管理
 func NewKernelWithContext(ctx context.Context) *Kernel {
-	system := actors.NewSystem(ctx)
+	system := actor.NewSystem(ctx)
 	return &Kernel{
 		system:       system,
 		typeRegistry: meta.NewTypeRegistry(),
@@ -123,7 +123,7 @@ func (k *Kernel) createResource(resourceType, resourceID string, typeDesc *meta.
 	// 1. 创建基础资源 Actor（业务中立，不包含属性管理）
 	// 注意：Kernel 层是业务中立的，只创建最基础的资源 Actor
 	// 属性管理、快照等功能应该由业务层（如 CIM 适配层）通过扩展 Actor 实现
-	actor := actors.NewBaseResourceActor(resourceID, resourceType)
+	a := actor.NewBaseResourceActor(resourceID, resourceType)
 
 	// 2. 根据类型定义添加 Capabilities
 	// 注意：Kernel 层是业务中立的，不应该直接创建 CIM 特定的 Capacity
@@ -131,7 +131,7 @@ func (k *Kernel) createResource(resourceType, resourceID string, typeDesc *meta.
 	// 这里暂时跳过 Capacity 添加，应该通过其他机制（如 Actor 工厂）处理
 
 	// 3. 注册到 System
-	if err := k.system.Register(actor); err != nil {
+	if err := k.system.Register(a); err != nil {
 		return err
 	}
 
@@ -198,8 +198,8 @@ func (k *Kernel) Stat(ctx context.Context, fd ResourceDescriptor) (*ResourceStat
 
 	// 获取事件列表（如果 Actor 实现了 ResourceActor 接口）
 	var eventInfos []EventInfo
-	if actor, exists := k.resourceMgr.system.Get(state.ResourceID); exists {
-		if resourceActor, ok := actor.(actors.ResourceActor); ok {
+	if a, exists := k.resourceMgr.system.Get(state.ResourceID); exists {
+		if resourceActor, ok := a.(actor.ResourceActor); ok {
 			eventDescs := resourceActor.ListEventDescriptors()
 			eventInfos = make([]EventInfo, len(eventDescs))
 			for i, eventDesc := range eventDescs {

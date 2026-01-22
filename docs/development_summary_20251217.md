@@ -79,7 +79,7 @@ CIMResourceActor（OWL 属性 + 状态管理）
 ```
 
 #### 3.3 新增文件
-- `actors/base_resource_actor.go` - 基础资源 Actor，提供能力管理功能
+- `actor/base_resource_actor.go` - 基础资源 Actor，提供能力管理功能
 
 #### 3.4 删除内容
 - 删除 `PowerSystemResourceActor` 结构体和构造函数
@@ -118,22 +118,22 @@ type PropertyHolder interface {
 ### 新增文件
 | 文件 | 说明 |
 |------|------|
-| `actors/base_resource_actor.go` | 基础资源 Actor，能力管理基类 |
+| `actor/base_resource_actor.go` | 基础资源 Actor，能力管理基类 |
 
 ### 修改文件
 | 文件 | 变更内容 |
 |------|----------|
-| `actors/resource_actor.go` | 删除 PowerSystemResourceActor，保留接口定义 |
-| `actors/cim_resource_actor.go` | 改为嵌入 BaseResourceActor |
-| `actors/system.go` | 更新类型断言，使用 ResourceActor 接口 |
-| `actors/resource_actor_test.go` | 测试改用 BaseResourceActor |
+| `actor/resource_actor.go` | 删除 PowerSystemResourceActor，保留接口定义 |
+| `actor/cim_resource_actor.go` | 改为嵌入 BaseResourceActor |
+| `actor/system.go` | 更新类型断言，使用 ResourceActor 接口 |
+| `actor/resource_actor_test.go` | 测试改用 BaseResourceActor |
 | `resource/manager.go` | Resource.actor 字段改用 ResourceActor 接口 |
 | `resource/read_write.go` | ActorState 新增 OWLClassURI 和 Properties 字段 |
 | `resource/example_test.go` | 改用 CIMResourceActor |
 | `resource/cmd/kernel_example/main.go` | 改用 CIMResourceActor |
 | `kernel/cmd/example/main.go` | 改用 CIMResourceActor，修复路径 |
 | `kernel/cmd/example/go.mod` | 添加缺失的依赖 |
-| `actors/cmd/*/main.go` | 全部改用 CIMResourceActor |
+| `actor/cmd/*/main.go` | 全部改用 CIMResourceActor |
 
 ## 架构图
 

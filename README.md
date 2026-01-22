@@ -99,7 +99,7 @@ uos-kernel/
 │   ├── example_test.go       # 测试示例
 │   └── cmd/kernel_example/   # 使用示例
 │
-├── actors/                     # 实现层：Actor 系统
+├── actor/                     # 实现层：Actor 系统
 │   ├── actor.go              # 基础 Actor
 │   ├── system.go             # Actor 系统管理器
 │   ├── resource_actor.go     # PowerSystemResourceActor
@@ -133,7 +133,7 @@ uos-kernel/
 
 ## 核心组件
 
-### 1. Actor 系统 (`actors/`)
+### 1. Actor 系统 (`actor/`)
 
 **BaseActor**
 - 基础 Actor 实现，包含邮箱（mailbox）和消息处理循环
@@ -192,7 +192,7 @@ package main
 
 import (
     "context"
-    "github.com/uos-projects/uos-kernel/actors"
+    "github.com/uos-projects/uos-kernel/actor"
     "github.com/uos-projects/uos-kernel/kernel"
 )
 
@@ -293,15 +293,15 @@ resource_types:
 
 ### 添加新的 Control Capacity
 
-1. 在 `actors/capacities/` 下创建新的 Capacity 实现
+1. 在 `actor/capacities/` 下创建新的 Capacity 实现
 2. 实现 `Capacity` 接口
-3. 在 `actors/capacity_factory.go` 中注册
+3. 在 `actor/capacity_factory.go` 中注册
 
 ### 添加新的 Measurement Capacity
 
 1. 继承 `BaseMeasurementCapacity`
 2. 实现具体的测量值处理逻辑
-3. 在 `actors/capacity_factory.go` 中注册
+3. 在 `actor/capacity_factory.go` 中注册
 
 ### 定义新的资源类型
 

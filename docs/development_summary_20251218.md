@@ -42,7 +42,7 @@
 *   **冷数据/温数据 (Cold/Warm)**：通过快照 (`Snapshot`) 形式持久化到后端存储（如 Apache Iceberg），提供时间旅行 (`Time Travel`) 和审计能力。
 
 #### 3.2 核心抽象：`SnapshotStore`
-定义了存储无关的快照接口 (`actors/state/snapshot_store.go`)：
+定义了存储无关的快照接口 (`actor/state/snapshot_store.go`)：
 ```go
 type SnapshotStore interface {
     Save(ctx context.Context, resourceID string, state interface{}) error

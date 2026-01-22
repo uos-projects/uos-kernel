@@ -7,14 +7,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/uos-projects/uos-kernel/actors"
+	"github.com/uos-projects/uos-kernel/actor"
 )
 
 // DispatcherOperatorActor 调度操作员 Actor
 // 代表操作员的数字化实体，只反映操作员的状态，不执行行为
 // 实际行为由 SimulatedOperatorBinding 执行
 type DispatcherOperatorActor struct {
-	*actors.BaseResourceActor
+	*actor.BaseResourceActor
 
 	operatorID   string
 	operatorName string
@@ -22,30 +22,30 @@ type DispatcherOperatorActor struct {
 	taskMu       sync.RWMutex
 
 	// 系统引用（用于发送消息）
-	system *actors.System
+	system *actor.System
 }
 
 // NewDispatcherOperatorActor 创建调度操作员 Actor
-func NewDispatcherOperatorActor(id string, name string, system *actors.System) *DispatcherOperatorActor {
-	actor := &DispatcherOperatorActor{
-		BaseResourceActor: actors.NewBaseResourceActor(id, "DispatcherOperator"),
+func NewDispatcherOperatorActor(id string, name string, system *actor.System) *DispatcherOperatorActor {
+	o := &DispatcherOperatorActor{
+		BaseResourceActor: actor.NewBaseResourceActor(id, "DispatcherOperator"),
 		operatorID:        id,
 		operatorName:      name,
 		system:            system,
 	}
 
 	// 注册业务事件
-	actor.registerBusinessEvents()
+	o.registerBusinessEvents()
 
-	return actor
+	return o
 }
 
 // registerBusinessEvents 注册业务事件
 func (o *DispatcherOperatorActor) registerBusinessEvents() {
 	// 注册检修完成事件
-	maintenanceCompletedEventDesc := actors.NewEventDescriptor(
+	maintenanceCompletedEventDesc := actor.NewEventDescriptor(
 		"MaintenanceCompletedEvent",
-		actors.EventTypeCommandCompleted,
+		actor.EventTypeCommandCompleted,
 		reflect.TypeOf((*MaintenanceCompletedEvent)(nil)).Elem(),
 		"检修完成事件",
 		o.ResourceID(),
@@ -54,7 +54,7 @@ func (o *DispatcherOperatorActor) registerBusinessEvents() {
 }
 
 // Receive 重写消息处理逻辑
-func (o *DispatcherOperatorActor) Receive(ctx context.Context, msg actors.Message) error {
+func (o *DispatcherOperatorActor) Receive(ctx context.Context, msg actor.Message) error {
 	// 处理开始检修命令（通过 Binding 执行）
 	switch cmd := msg.(type) {
 	case *StartMaintenanceCommand:
@@ -63,8 +63,8 @@ func (o *DispatcherOperatorActor) Receive(ctx context.Context, msg actors.Messag
 
 	// 处理来自 Binding 的外部事件（操作员状态反馈）
 	switch m := msg.(type) {
-	case *actors.ExternalEventMessage:
-		if m.BindingType == actors.BindingTypeHuman {
+	case *actor.ExternalEventMessage:
+		if m.BindingType == actor.BindingTypeHuman {
 			return o.handleOperatorDeviceEvent(ctx, m.Event)
 		}
 	}
@@ -100,14 +100,14 @@ func (o *DispatcherOperatorActor) handleStartMaintenanceCommand(ctx context.Cont
 	}
 
 	// 检查 Binding 是否存在
-	if _, exists := o.GetBinding(actors.BindingTypeHuman); !exists {
+	if _, exists := o.GetBinding(actor.BindingTypeHuman); !exists {
 		return fmt.Errorf("操作员绑定未找到")
 	}
 
 	// 通过 Binding 执行实际行为（发送 ExecuteExternalCommandMessage）
 	// 消息会被 BaseResourceActor.handleCoordinationEvent 处理，然后调用 Binding.ExecuteExternal
-	executeMsg := &actors.ExecuteExternalCommandMessage{
-		BindingType: actors.BindingTypeHuman,
+	executeMsg := &actor.ExecuteExternalCommandMessage{
+		BindingType: actor.BindingTypeHuman,
 		Command:     cmd,
 	}
 	// 发送消息到 Actor 的消息循环，由 BaseResourceActor 处理
@@ -132,8 +132,8 @@ func (o *DispatcherOperatorActor) acceptTask(task *MaintenanceTask) error {
 
 	// 发射任务开始事件
 	if emitter := o.GetEventEmitter(); emitter != nil {
-		_ = emitter.Emit(actors.Event{
-			Type: actors.EventTypeStateChanged,
+		_ = emitter.Emit(actor.Event{
+			Type: actor.EventTypeStateChanged,
 			Payload: map[string]interface{}{
 				"event_type":  "MaintenanceTaskStarted",
 				"task_id":     task.TaskID,
@@ -204,8 +204,8 @@ func (o *DispatcherOperatorActor) updateTaskStatus(status string) {
 // emitStepEvent 发射步骤完成事件
 func (o *DispatcherOperatorActor) emitStepEvent(step string, taskID string) {
 	if emitter := o.GetEventEmitter(); emitter != nil {
-		_ = emitter.Emit(actors.Event{
-			Type: actors.EventTypeStateChanged,
+		_ = emitter.Emit(actor.Event{
+			Type: actor.EventTypeStateChanged,
 			Payload: map[string]interface{}{
 				"event_type": "MaintenanceTaskStepCompleted",
 				"task_id":    taskID,
@@ -220,8 +220,8 @@ func (o *DispatcherOperatorActor) emitStepEvent(step string, taskID string) {
 func (o *DispatcherOperatorActor) finishTask(ctx context.Context, task *MaintenanceTask, result string) {
 	// 发射检修完成事件
 	if emitter := o.GetEventEmitter(); emitter != nil {
-		_ = emitter.Emit(actors.Event{
-			Type: actors.EventTypeCommandCompleted,
+		_ = emitter.Emit(actor.Event{
+			Type: actor.EventTypeCommandCompleted,
 			Payload: &MaintenanceCompletedEvent{
 				TaskID:     task.TaskID,
 				OperatorID: o.operatorID,
