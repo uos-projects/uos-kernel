@@ -44,7 +44,7 @@ type ResourceActor interface {
 	ListEventDescriptors() []*EventDescriptor
 
 	// CanEmitEvent 检查是否能发出指定类型的事件
-	CanEmitEvent(eventType EventType, payload interface{}) bool
+	CanEmitEvent(eventName string, payload interface{}) bool
 }
 
 // PropertyHolder 属性持有者接口（业务中立）

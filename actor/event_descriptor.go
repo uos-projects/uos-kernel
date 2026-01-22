@@ -14,9 +14,6 @@ type EventDescriptor struct {
 	// Name 事件名称（唯一标识，如 "DeviceAbnormalEvent"）
 	Name string
 
-	// EventType 事件类型（EventType 常量，如 EventTypeStateChanged）
-	EventType EventType
-
 	// PayloadType Payload 的类型（反射类型）
 	PayloadType reflect.Type
 
@@ -30,14 +27,12 @@ type EventDescriptor struct {
 // NewEventDescriptor 创建事件描述符
 func NewEventDescriptor(
 	name string,
-	eventType EventType,
 	payloadType reflect.Type,
 	description string,
 	resourceID string,
 ) *EventDescriptor {
 	return &EventDescriptor{
 		Name:        name,
-		EventType:   eventType,
 		PayloadType: payloadType,
 		Description: description,
 		ResourceID:  resourceID,
@@ -45,10 +40,7 @@ func NewEventDescriptor(
 }
 
 // CanEmit 检查是否能发出指定类型的事件
-func (ed *EventDescriptor) CanEmit(eventType EventType, payload interface{}) bool {
-	if ed.EventType != eventType {
-		return false
-	}
+func (ed *EventDescriptor) CanEmit(payload interface{}) bool {
 	if payload == nil {
 		return true
 	}

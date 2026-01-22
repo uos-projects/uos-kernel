@@ -31,6 +31,7 @@ type BaseActor struct {
 	cancel  context.CancelFunc
 	wg      sync.WaitGroup
 	system  *System // System 引用，用于 Actor 之间通信
+	self    Actor   // 保存完整的 Actor 引用，用于调用子类的 Receive
 }
 
 // NewBaseActor 创建一个新的基础 Actor
@@ -48,6 +49,11 @@ func NewBaseActor(id string) *BaseActor {
 // SetSystem 设置 Actor 的 System 引用（由 System 在注册时调用）
 func (a *BaseActor) SetSystem(system *System) {
 	a.system = system
+}
+
+// SetSelf 设置完整的 Actor 引用（由 System 在注册时调用）
+func (a *BaseActor) SetSelf(self Actor) {
+	a.self = self
 }
 
 // GetRef 获取指定 Actor 的 ActorRef
@@ -122,9 +128,18 @@ func (a *BaseActor) run() {
 				}
 			}
 		case msg := <-a.mailbox:
-			if err := a.Receive(a.ctx, msg); err != nil {
-				// 错误处理逻辑可以在这里添加
-				continue
+			// 通过 self 引用调用 Receive，确保调用子类的实现
+			// 如果 self 未设置，回退到 a.Receive
+			if a.self != nil {
+				if err := a.self.Receive(a.ctx, msg); err != nil {
+					// 错误处理逻辑可以在这里添加
+					continue
+				}
+			} else {
+				// 回退到 BaseActor.Receive（空实现）
+				if err := a.Receive(a.ctx, msg); err != nil {
+					continue
+				}
 			}
 		}
 	}

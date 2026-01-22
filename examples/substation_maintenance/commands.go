@@ -8,7 +8,7 @@ import (
 )
 
 // ============================================================================
-// 命令定义（Capability Commands）
+// 命令定义（Commands）
 // ============================================================================
 
 // OpenBreakerCommand 打开断路器命令
@@ -20,7 +20,7 @@ type OpenBreakerCommand struct {
 }
 
 func (c *OpenBreakerCommand) MessageType() actor.MessageCategory {
-	return actor.MessageCategoryCapabilityCommand
+	return actor.MessageCategoryCommand
 }
 
 func (c *OpenBreakerCommand) CommandID() string {
@@ -39,7 +39,7 @@ type CloseBreakerCommand struct {
 }
 
 func (c *CloseBreakerCommand) MessageType() actor.MessageCategory {
-	return actor.MessageCategoryCapabilityCommand
+	return actor.MessageCategoryCommand
 }
 
 func (c *CloseBreakerCommand) CommandID() string {
@@ -62,7 +62,7 @@ type StartMaintenanceCommand struct {
 }
 
 func (c *StartMaintenanceCommand) MessageType() actor.MessageCategory {
-	return actor.MessageCategoryCapabilityCommand
+	return actor.MessageCategoryCommand
 }
 
 func (c *StartMaintenanceCommand) CommandID() string {
@@ -81,7 +81,7 @@ type CompleteMaintenanceCommand struct {
 }
 
 func (c *CompleteMaintenanceCommand) MessageType() actor.MessageCategory {
-	return actor.MessageCategoryCapabilityCommand
+	return actor.MessageCategoryCommand
 }
 
 func (c *CompleteMaintenanceCommand) CommandID() string {

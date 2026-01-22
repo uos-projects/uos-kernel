@@ -45,7 +45,6 @@ func (o *DispatcherOperatorActor) registerBusinessEvents() {
 	// 注册检修完成事件
 	maintenanceCompletedEventDesc := actor.NewEventDescriptor(
 		"MaintenanceCompletedEvent",
-		actor.EventTypeCommandCompleted,
 		reflect.TypeOf((*MaintenanceCompletedEvent)(nil)).Elem(),
 		"检修完成事件",
 		o.ResourceID(),
@@ -130,18 +129,8 @@ func (o *DispatcherOperatorActor) acceptTask(task *MaintenanceTask) error {
 
 	fmt.Printf("[操作员 Actor %s] ✅ 已接受任务：%s\n", o.operatorName, task.TaskID)
 
-	// 发射任务开始事件
-	if emitter := o.GetEventEmitter(); emitter != nil {
-		_ = emitter.Emit(actor.Event{
-			Type: actor.EventTypeStateChanged,
-			Payload: map[string]interface{}{
-				"event_type":  "MaintenanceTaskStarted",
-				"task_id":     task.TaskID,
-				"operator_id": o.operatorID,
-				"timestamp":   time.Now(),
-			},
-		})
-	}
+	// 发射任务开始事件（如果需要，可以创建对应的事件类型）
+	// 这里暂时不发射，因为系统事件先不做处理
 
 	return nil
 }
@@ -201,35 +190,23 @@ func (o *DispatcherOperatorActor) updateTaskStatus(status string) {
 	o.taskMu.Unlock()
 }
 
-// emitStepEvent 发射步骤完成事件
+// emitStepEvent 发射步骤完成事件（如果需要，可以创建对应的事件类型）
 func (o *DispatcherOperatorActor) emitStepEvent(step string, taskID string) {
-	if emitter := o.GetEventEmitter(); emitter != nil {
-		_ = emitter.Emit(actor.Event{
-			Type: actor.EventTypeStateChanged,
-			Payload: map[string]interface{}{
-				"event_type": "MaintenanceTaskStepCompleted",
-				"task_id":    taskID,
-				"step":       step,
-				"timestamp":  time.Now(),
-			},
-		})
-	}
+	// 系统事件先不做处理
 }
 
 // finishTask 完成任务（状态更新和事件通知）
 func (o *DispatcherOperatorActor) finishTask(ctx context.Context, task *MaintenanceTask, result string) {
-	// 发射检修完成事件
+	// 发射检修完成事件（Event/Message）
 	if emitter := o.GetEventEmitter(); emitter != nil {
-		_ = emitter.Emit(actor.Event{
-			Type: actor.EventTypeCommandCompleted,
-			Payload: &MaintenanceCompletedEvent{
-				TaskID:     task.TaskID,
-				OperatorID: o.operatorID,
-				DeviceIDs:  task.Devices,
-				Result:     result,
-				Timestamp:  time.Now(),
-			},
-		})
+		event := &MaintenanceCompletedEvent{
+			TaskID:     task.TaskID,
+			OperatorID: o.operatorID,
+			DeviceIDs:  task.Devices,
+			Result:     result,
+			Timestamp:  time.Now(),
+		}
+		_ = emitter.EmitEvent(event)
 	}
 
 	// 通知调度中心

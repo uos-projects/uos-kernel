@@ -94,20 +94,12 @@ type StateChange struct {
 	ToValue interface{}
 }
 
-// CapacityEvent 事件（用于 Capacity Effects，避免与 actor.Event 冲突）
-type CapacityEvent struct {
-	// Type 事件类型（如 "DevicePoweredOff"）
-	Type string
-	// Payload 事件负载
-	Payload interface{}
-}
-
 // Effect 效果
 type Effect struct {
 	// StateChanges 状态变化列表
 	StateChanges []StateChange
-	// Events 事件列表
-	Events []CapacityEvent
+	// Events 事件列表（Event/Message）
+	Events []Event
 }
 
 // Effects 定义 Capacity 执行后的效果

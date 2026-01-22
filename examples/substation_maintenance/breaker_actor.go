@@ -68,8 +68,7 @@ func NewBreakerActor(id string, name string) *BreakerActor {
 		"lastMaintenanceTime": b.lastMaintenanceTime,
 	}
 	for k, v := range props {
-		msg := &actor.SetPropertyMessage{Name: k, Value: v}
-		b.Send(msg)
+		b.SetProperty(k, v)
 	}
 
 	// 注册断路器开关控制能力（BreakerSwitchingCapacity）
@@ -93,7 +92,6 @@ func (b *BreakerActor) registerBusinessEvents() {
 	// 注册设备异常事件
 	deviceAbnormalEventDesc := actor.NewEventDescriptor(
 		"DeviceAbnormalEvent",
-		actor.EventTypeStateChanged,
 		reflect.TypeOf((*DeviceAbnormalEvent)(nil)).Elem(),
 		"设备异常事件（温度异常、电压异常等）",
 		b.ResourceID(),
@@ -103,7 +101,6 @@ func (b *BreakerActor) registerBusinessEvents() {
 	// 注册需要检修事件
 	maintenanceRequiredEventDesc := actor.NewEventDescriptor(
 		"MaintenanceRequiredEvent",
-		actor.EventTypeStateChanged,
 		reflect.TypeOf((*MaintenanceRequiredEvent)(nil)).Elem(),
 		"需要检修事件（定期检修、异常检修等）",
 		b.ResourceID(),
@@ -155,9 +152,8 @@ func (b *BreakerActor) monitorStatus(ctx context.Context) {
 				if b.temperature > 90.0 {
 					b.temperature = 90.0
 				}
-				// 通过消息更新属性
-				msg := &actor.SetPropertyMessage{Name: "temperature", Value: b.temperature}
-				b.Send(msg)
+				// 直接更新属性
+				b.SetProperty("temperature", b.temperature)
 
 				// 更新运行小时数
 				b.operationHours = int64(time.Since(b.startTime).Hours())
@@ -196,15 +192,11 @@ func (b *BreakerActor) emitAbnormalEvent(eventType string, details map[string]in
 		Timestamp: time.Now(),
 	}
 
-	// 通过事件发射器发射事件
-	// 事件处理器会将事件转换为消息并发送给调度中心
-	// 注意：GetEventEmitter() 会延迟初始化，如果 system 已设置，会自动创建 eventEmitter
+	// 通过事件发射器发射事件（Event/Message）
+	// System 的事件监听器会将事件转发给调度中心
 	emitter := b.GetEventEmitter()
 	if emitter != nil {
-		_ = emitter.Emit(actor.Event{
-			Type:    actor.EventTypeStateChanged,
-			Payload: event,
-		})
+		_ = emitter.EmitEvent(event)
 	}
 
 	fmt.Printf("[%s] ⚠️  异常检测：%s, 详情：%v\n", b.ResourceID(), eventType, details)
@@ -224,15 +216,11 @@ func (b *BreakerActor) emitMaintenanceRequiredEvent(reason string, operationHour
 		Timestamp: time.Now(),
 	}
 
-	// 通过事件发射器发射事件
-	// 事件处理器会将事件转换为消息并发送给调度中心
-	// 注意：GetEventEmitter() 会延迟初始化，如果 system 已设置，会自动创建 eventEmitter
+	// 通过事件发射器发射事件（Event/Message）
+	// System 的事件监听器会将事件转发给调度中心
 	emitter := b.GetEventEmitter()
 	if emitter != nil {
-		err := emitter.Emit(actor.Event{
-			Type:    actor.EventTypeStateChanged,
-			Payload: event,
-		})
+		err := emitter.EmitEvent(event)
 		if err != nil {
 			fmt.Printf("[%s] ⚠️  发射检修事件失败：%v\n", b.ResourceID(), err)
 		}
@@ -289,11 +277,11 @@ func (b *BreakerActor) doOpen(ctx context.Context, reason, operator string) erro
 	// 执行打开操作（模拟）
 	time.Sleep(100 * time.Millisecond) // 模拟操作时间
 
-	// 更新状态（通过消息驱动）
+	// 更新状态（直接方法调用）
 	b.isOpen = true
 	b.current = 0.0 // 打开后电流为0
-	b.Send(&actor.SetPropertyMessage{Name: "isOpen", Value: true})
-	b.Send(&actor.SetPropertyMessage{Name: "current", Value: 0.0})
+	b.SetProperty("isOpen", true)
+	b.SetProperty("current", 0.0)
 
 	fmt.Printf("[%s] ✓ 断路器已打开，电流：%.2f A\n", b.ResourceID(), b.current)
 
@@ -317,11 +305,11 @@ func (b *BreakerActor) doClose(ctx context.Context, reason, operator string) err
 	// 执行关闭操作（模拟）
 	time.Sleep(100 * time.Millisecond) // 模拟操作时间
 
-	// 更新状态（通过消息驱动）
+	// 更新状态（直接方法调用）
 	b.isOpen = false
 	b.current = 100.0 // 关闭后恢复电流
-	b.Send(&actor.SetPropertyMessage{Name: "isOpen", Value: false})
-	b.Send(&actor.SetPropertyMessage{Name: "current", Value: 100.0})
+	b.SetProperty("isOpen", false)
+	b.SetProperty("current", 100.0)
 
 	fmt.Printf("[%s] ✓ 断路器已关闭，电流：%.2f A\n", b.ResourceID(), b.current)
 
@@ -337,8 +325,8 @@ func (b *BreakerActor) CompleteMaintenance() {
 	b.startTime = time.Now() // 重置启动时间
 	b.operationHours = 0
 	b.temperature = 45.0 // 重置温度
-	b.Send(&actor.SetPropertyMessage{Name: "lastMaintenanceTime", Value: b.lastMaintenanceTime})
-	b.Send(&actor.SetPropertyMessage{Name: "temperature", Value: b.temperature})
+	b.SetProperty("lastMaintenanceTime", b.lastMaintenanceTime)
+	b.SetProperty("temperature", b.temperature)
 
 	fmt.Printf("[%s] ✅ 检修完成，检修时间已更新\n", b.ResourceID())
 }

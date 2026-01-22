@@ -24,7 +24,7 @@ type MaintenanceTask struct {
 }
 
 func (t *MaintenanceTask) MessageType() actor.MessageCategory {
-	return actor.MessageCategoryCoordinationEvent
+	return actor.MessageCategoryEvent
 }
 
 // MaintenancePlan 检修计划
@@ -76,7 +76,6 @@ func (d *DispatcherActor) registerBusinessEvents() {
 	// 注册任务创建事件
 	taskCreatedEventDesc := actor.NewEventDescriptor(
 		"MaintenanceTaskCreatedEvent",
-		actor.EventTypeStateChanged,
 		reflect.TypeOf((*MaintenanceTaskCreatedEvent)(nil)).Elem(),
 		"检修任务创建事件",
 		d.ResourceID(),
@@ -86,7 +85,6 @@ func (d *DispatcherActor) registerBusinessEvents() {
 	// 注册任务分配事件
 	taskAssignedEventDesc := actor.NewEventDescriptor(
 		"MaintenanceTaskAssignedEvent",
-		actor.EventTypeStateChanged,
 		reflect.TypeOf((*MaintenanceTaskAssignedEvent)(nil)).Elem(),
 		"检修任务分配事件",
 		d.ResourceID(),
@@ -96,7 +94,6 @@ func (d *DispatcherActor) registerBusinessEvents() {
 	// 注册任务更新事件
 	taskUpdatedEventDesc := actor.NewEventDescriptor(
 		"MaintenanceTaskUpdatedEvent",
-		actor.EventTypeStateChanged,
 		reflect.TypeOf((*MaintenanceTaskUpdatedEvent)(nil)).Elem(),
 		"检修任务更新事件",
 		d.ResourceID(),
@@ -112,10 +109,8 @@ func (d *DispatcherActor) RegisterOperator(operatorID string) {
 
 // Receive 重写消息处理逻辑
 func (d *DispatcherActor) Receive(ctx context.Context, msg actor.Message) error {
-	// 优先处理世界事件（Coordination Events）
+	// 优先处理世界事件（Events）
 	// 注意：必须在基类 Receive() 之前处理，因为基类会根据 MessageType() 路由
-	// 而 MaintenanceRequiredEvent 等是 MessageCategoryCoordinationEvent，
-	// 会被基类的 handleCoordinationEvent() 的 default 分支忽略
 	switch event := msg.(type) {
 	case *DeviceAbnormalEvent:
 		return d.handleWorldEvent(ctx, event)
@@ -123,10 +118,10 @@ func (d *DispatcherActor) Receive(ctx context.Context, msg actor.Message) error 
 		return d.handleWorldEvent(ctx, event)
 	case *MaintenanceCompletedEvent:
 		return d.handleMaintenanceCompletedEvent(ctx, event)
+	default:
+		// 其他消息交给基类处理
+		return d.BaseResourceActor.Receive(ctx, msg)
 	}
-
-	// 其他消息交给基类处理
-	return d.BaseResourceActor.Receive(ctx, msg)
 }
 
 // handleWorldEvent 处理世界事件（统一入口）
@@ -288,47 +283,41 @@ func (d *DispatcherActor) assignTaskToOperator(task MaintenanceTask) error {
 // emitTaskCreatedEvent 发射任务创建事件
 func (d *DispatcherActor) emitTaskCreatedEvent(task MaintenanceTask) {
 	if emitter := d.GetEventEmitter(); emitter != nil {
-		_ = emitter.Emit(actor.Event{
-			Type: actor.EventTypeStateChanged,
-			Payload: &MaintenanceTaskCreatedEvent{
-				TaskID:      task.TaskID,
-				Type:        task.Type,
-				Devices:     task.Devices,
-				Description: task.Description,
-				Reason:      task.Reason,
-				Timestamp:   task.CreatedAt,
-			},
-		})
+		event := &MaintenanceTaskCreatedEvent{
+			TaskID:      task.TaskID,
+			Type:        task.Type,
+			Devices:     task.Devices,
+			Description: task.Description,
+			Reason:      task.Reason,
+			Timestamp:   task.CreatedAt,
+		}
+		_ = emitter.EmitEvent(event)
 	}
 }
 
 // emitTaskAssignedEvent 发射任务分配事件
 func (d *DispatcherActor) emitTaskAssignedEvent(taskID string, operatorID string, deviceIDs []string, reason string) {
 	if emitter := d.GetEventEmitter(); emitter != nil {
-		_ = emitter.Emit(actor.Event{
-			Type: actor.EventTypeStateChanged,
-			Payload: &MaintenanceTaskAssignedEvent{
-				TaskID:     taskID,
-				OperatorID: operatorID,
-				DeviceIDs:  deviceIDs,
-				Reason:     reason,
-				Timestamp:  time.Now(),
-			},
-		})
+		event := &MaintenanceTaskAssignedEvent{
+			TaskID:     taskID,
+			OperatorID: operatorID,
+			DeviceIDs:  deviceIDs,
+			Reason:     reason,
+			Timestamp:  time.Now(),
+		}
+		_ = emitter.EmitEvent(event)
 	}
 }
 
 // emitTaskUpdatedEvent 发射任务更新事件
 func (d *DispatcherActor) emitTaskUpdatedEvent(taskID string, status string) {
 	if emitter := d.GetEventEmitter(); emitter != nil {
-		_ = emitter.Emit(actor.Event{
-			Type: actor.EventTypeStateChanged,
-			Payload: &MaintenanceTaskUpdatedEvent{
-				TaskID:    taskID,
-				Status:    status,
-				Timestamp: time.Now(),
-			},
-		})
+		event := &MaintenanceTaskUpdatedEvent{
+			TaskID:    taskID,
+			Status:    status,
+			Timestamp: time.Now(),
+		}
+		_ = emitter.EmitEvent(event)
 	}
 }
 

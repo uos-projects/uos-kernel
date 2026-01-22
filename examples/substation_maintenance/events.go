@@ -7,7 +7,7 @@ import (
 )
 
 // ============================================================================
-// 事件定义（Coordination Events）
+// 事件定义（Events）
 // ============================================================================
 
 // DeviceAbnormalEvent 设备异常事件
@@ -21,7 +21,7 @@ type DeviceAbnormalEvent struct {
 }
 
 func (e *DeviceAbnormalEvent) MessageType() actor.MessageCategory {
-	return actor.MessageCategoryCoordinationEvent
+	return actor.MessageCategoryEvent
 }
 
 func (e *DeviceAbnormalEvent) SourceActorID() string {
@@ -40,7 +40,7 @@ type MaintenanceRequiredEvent struct {
 }
 
 func (e *MaintenanceRequiredEvent) MessageType() actor.MessageCategory {
-	return actor.MessageCategoryCoordinationEvent
+	return actor.MessageCategoryEvent
 }
 
 func (e *MaintenanceRequiredEvent) SourceActorID() string {
@@ -59,7 +59,7 @@ type MaintenanceTaskCreatedEvent struct {
 }
 
 func (e *MaintenanceTaskCreatedEvent) MessageType() actor.MessageCategory {
-	return actor.MessageCategoryCoordinationEvent
+	return actor.MessageCategoryEvent
 }
 
 func (e *MaintenanceTaskCreatedEvent) SourceActorID() string {
@@ -77,7 +77,7 @@ type MaintenanceTaskAssignedEvent struct {
 }
 
 func (e *MaintenanceTaskAssignedEvent) MessageType() actor.MessageCategory {
-	return actor.MessageCategoryCoordinationEvent
+	return actor.MessageCategoryEvent
 }
 
 func (e *MaintenanceTaskAssignedEvent) SourceActorID() string {
@@ -93,7 +93,7 @@ type MaintenanceTaskUpdatedEvent struct {
 }
 
 func (e *MaintenanceTaskUpdatedEvent) MessageType() actor.MessageCategory {
-	return actor.MessageCategoryCoordinationEvent
+	return actor.MessageCategoryEvent
 }
 
 func (e *MaintenanceTaskUpdatedEvent) SourceActorID() string {
@@ -111,7 +111,7 @@ type MaintenanceCompletedEvent struct {
 }
 
 func (e *MaintenanceCompletedEvent) MessageType() actor.MessageCategory {
-	return actor.MessageCategoryCoordinationEvent
+	return actor.MessageCategoryEvent
 }
 
 func (e *MaintenanceCompletedEvent) SourceActorID() string {

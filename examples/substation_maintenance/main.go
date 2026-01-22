@@ -78,9 +78,12 @@ func main() {
 		panic(err)
 	}
 
-	// 6. 设置事件处理器（调度中心监听设备事件）
-	// 注意：必须在 Actor 启动后注册，确保 eventEmitter 已初始化
-	setupEventHandlers(system, dispatcher, breaker1, breaker2, breaker3)
+	// 6. 设置事件订阅（调度中心订阅接收所有事件）
+	// 调度中心 Actor 订阅事件，所有事件会直接发送给它
+	if err := system.SubscribeEvent("DISPATCHER"); err != nil {
+		panic(fmt.Errorf("订阅事件失败: %w", err))
+	}
+	fmt.Printf("[事件订阅] ✅ 调度中心已订阅事件\n")
 
 	// 7. 显示初始状态
 	fmt.Println("=== 初始状态 ===")
@@ -114,55 +117,6 @@ func main() {
 
 	fmt.Println("\n=== 演示完成 ===")
 	fmt.Println("（实际应用中，Actor 会一直运行，持续监测和响应事件）")
-}
-
-// DispatcherEventHandler 调度中心事件处理器
-// 将设备 Actor 发射的事件转换为消息并发送给调度中心
-type DispatcherEventHandler struct {
-	system       *actor.System
-	dispatcherID string
-}
-
-// HandleEvent 处理事件，将事件转换为消息发送给调度中心
-func (h *DispatcherEventHandler) HandleEvent(ctx context.Context, event actor.Event) error {
-	// 从 Payload 中提取业务事件
-	switch payload := event.Payload.(type) {
-	case *MaintenanceRequiredEvent:
-		// 将 MaintenanceRequiredEvent 作为消息发送给调度中心
-		if err := h.system.Send(h.dispatcherID, payload); err != nil {
-			fmt.Printf("[事件处理器] ⚠️  发送检修事件到调度中心失败：%v\n", err)
-			return err
-		}
-		fmt.Printf("[事件处理器] ✅ 已将检修事件发送给调度中心：设备 %s\n", payload.DeviceID)
-		return nil
-	case *DeviceAbnormalEvent:
-		// 将 DeviceAbnormalEvent 作为消息发送给调度中心
-		if err := h.system.Send(h.dispatcherID, payload); err != nil {
-			fmt.Printf("[事件处理器] ⚠️  发送异常事件到调度中心失败：%v\n", err)
-			return err
-		}
-		fmt.Printf("[事件处理器] ✅ 已将异常事件发送给调度中心：设备 %s\n", payload.DeviceID)
-		return nil
-	default:
-		// 其他类型的事件不处理
-		return nil
-	}
-}
-
-// setupEventHandlers 设置事件处理器
-// 将设备事件转发给调度中心
-func setupEventHandlers(system *actor.System, dispatcher *DispatcherActor, breakers ...*BreakerActor) {
-	// 创建事件处理器
-	handler := &DispatcherEventHandler{
-		system:       system,
-		dispatcherID: "DISPATCHER",
-	}
-
-	// 为每个设备 Actor 注册事件处理器
-	for _, breaker := range breakers {
-		breaker.AddEventHandler(handler)
-		fmt.Printf("[事件处理器] ✅ 已为 %s 注册事件处理器\n", breaker.ResourceID())
-	}
 }
 
 // simulateTemperatureAbnormal 模拟温度异常
