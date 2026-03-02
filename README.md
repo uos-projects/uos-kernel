@@ -1,315 +1,269 @@
-# UOS Kernel - 电力系统资源操作系统内核
+# UOS Kernel — 电力系统资源操作系统内核
 
 ## 项目概述
 
-UOS Kernel 是一个基于 CIM (Common Information Model) 标准的电力系统资源操作系统内核。它将电力系统中的资源抽象为 Actor，实现了概念上的驱动层，并在此基础上提供了 POSIX 风格的资源访问接口。
-
-项目参考操作系统内核的对象类型系统（Object Type System）设计，实现了类型系统内核，提供类型验证、操作路由和统一的资源管理接口。
-
-## 核心设计思想
-
-### 1. 分层架构
+UOS Kernel 将电力系统中的设备（断路器、变压器、线路等）抽象为 **Actor**，在 Actor 之上构建 POSIX 风格的资源访问内核，再通过 **App 框架** 和 **gRPC 服务** 支撑上层业务流程的编排。
 
 ```
-┌─────────────────────────────────────┐
-│   用户应用层                          │
-│   (使用 Kernel API)                  │
-└─────────────────────────────────────┘
-           ↓
-┌─────────────────────────────────────┐
-│   Kernel (kernel包)                  │  ← 内核层：系统调用接口
-│   - 类型验证                         │
-│   - ioctl命令映射                    │
-│   - POSIX风格系统调用                │
-│   - 资源描述符管理                   │
-│   - 引用计数和排他性控制             │
-└─────────────────────────────────────┘
-           ↓
-┌─────────────────────────────────────┐
-│   Meta (meta包)                      │  ← 元层：类型系统定义
-│   - TypeRegistry                    │
-│   - TypeDescriptor                  │
-│   - CIM Converter                   │
-│   - YAML Loader                     │
-└─────────────────────────────────────┘
-           ↓
-┌─────────────────────────────────────┐
-│   Actor System (actors包)            │  ← 实现层：资源执行
-│   - PowerSystemResourceActor        │
-│   - Capacity Implementations        │
-│   - Message Routing                 │
-└─────────────────────────────────────┘
+Python / Java 业务流程
+    ↓  gRPC
+┌─────────────────────────────────┐
+│  gRPC Server (server/)          │  ← 远程接入层
+└────────────┬────────────────────┘
+             ↓
+┌─────────────────────────────────┐
+│  App 框架 (app/)                │  ← 业务编排层：Process + helpers
+└────────────┬────────────────────┘
+             ↓
+┌─────────────────────────────────┐
+│  Kernel (kernel/)               │  ← 系统调用层：Open/Close/Read/Write/Ioctl/Watch
+└────────────┬────────────────────┘
+             ↓
+┌─────────────────────────────────┐
+│  Meta (meta/)                   │  ← 类型系统：TypeRegistry / TypeDescriptor
+└────────────┬────────────────────┘
+             ↓
+┌─────────────────────────────────┐
+│  Actor System (actor/)          │  ← 设备层：Actor + Capacity + Event
+└─────────────────────────────────┘
 ```
 
-### 2. CIM 模型到 Actor 系统的映射
-
-基于 CIM 标准，将电力系统中的资源映射为 Actor 系统：
-
-- **PowerSystemResource** → `PowerSystemResourceActor`
-  - 每个电力系统资源（如发电机、变压器、断路器、线路等）对应一个 Actor
-  - Actor 代表资源实体，封装资源的状态和行为
-
-- **Control** → `Capacity` (能力接口)
-  - 每个控制类型（如 SetPoint、Command、AccumulatorReset 等）对应一种 Capacity
-  - Capacity 定义了资源可以执行的控制操作
-
-- **Measurement** → `MeasurementCapacity`
-  - 每个测量类型（如 AnalogMeasurement、DiscreteMeasurement 等）对应一种 MeasurementCapacity
-  - MeasurementCapacity 处理测量数据的订阅和更新
-
-### 3. 类型系统内核
-
-参考操作系统内核的对象类型系统，实现了类型系统内核：
-
-- **类型定义**：通过 YAML DSL 定义资源类型、属性、关系、能力
-- **类型注册**：TypeRegistry 管理所有类型描述符
-- **类型验证**：在执行操作前验证资源类型和能力
-- **YAML加载**：从 YAML 文件加载类型系统定义
-
-### 4. POSIX 风格接口
-
-提供类似操作系统内核的系统调用接口：
-
-- `Open(resourceType, resourceID, flags)` - 打开资源（带类型验证）
-- `Close(fd)` - 关闭资源
-- `Read(ctx, fd)` - 读取资源状态
-- `Write(ctx, fd, req)` - 写入资源状态
-- `Stat(ctx, fd)` - 查询资源信息（包含类型描述符）
-- `Ioctl(ctx, fd, request, argp)` - 控制操作（ioctl命令映射和类型验证）
+核心理念：**业务流程不直接接触 Actor，只通过 Kernel API 操控资源**。
 
 ## 项目结构
 
 ```
 uos-kernel/
-├── cmd/
-│   └── uos-kernel/           # 主应用程序
-│       ├── main.go           # 应用程序入口
-│       └── typesystem.yaml   # 默认类型系统定义（CIM 资源类型配置，可通过参数覆盖）
-├── meta/                      # 元层：类型系统框架
-│   ├── types.go              # 类型描述符数据结构
-│   ├── registry.go           # 类型注册表
-│   ├── loader.go             # YAML加载器
-│   └── README.md             # 类型系统使用文档
+├── actor/                         # 设备层：Actor 系统
+│   ├── actor.go                   #   Actor 接口 + BaseActor
+│   ├── system.go                  #   System：注册、事件分发、Watch
+│   ├── resource_actor.go          #   ResourceActor 接口
+│   ├── base_resource_actor.go     #   BaseResourceActor 实现
+│   ├── capacity.go                #   Capacity 接口
+│   ├── binding.go                 #   Binding 机制
+│   ├── message.go                 #   Message 接口
+│   ├── event.go                   #   Event 定义
+│   └── event_descriptor.go        #   EventDescriptor 元数据
 │
-├── kernel/                    # 内核层：系统调用接口
-│   ├── kernel.go             # Kernel（高级接口）
-│   ├── manager.go            # Manager（资源描述符管理）
-│   ├── read_write.go         # 资源状态访问（Read/Write）
-│   ├── rctl.go               # 资源控制（RCtl）
-│   ├── example_test.go       # 测试示例
-│   └── cmd/kernel_example/   # 使用示例
+├── meta/                          # 类型系统
+│   ├── types.go                   #   TypeDescriptor / AttributeDescriptor
+│   ├── registry.go                #   TypeRegistry
+│   └── loader.go                  #   YAML 加载器
 │
-├── actor/                     # 实现层：Actor 系统
-│   ├── actor.go              # 基础 Actor
-│   ├── system.go             # Actor 系统管理器
-│   ├── resource_actor.go     # PowerSystemResourceActor
-│   ├── capacity_factory.go   # Capacity 工厂
-│   ├── capacities/           # Capacity 实现
-│   │   ├── base.go           # 基础 Capacity
-│   │   ├── measurement_base.go  # Measurement 基类
-│   │   ├── analog_measurement.go
-│   │   ├── discrete_measurement.go
-│   │   ├── accumulator_measurement.go
-│   │   ├── set_point.go
-│   │   ├── command.go
-│   │   └── accumulator_reset.go
-│   ├── state/                # 状态管理
-│   │   ├── state_backend.go  # 状态后端
-│   │   ├── snapshot_store.go # 快照存储接口
-│   │   └── ...
-│   └── mq/                   # MQ Consumer 接口
-│       ├── consumer.go
-│       └── mock_consumer.go
+├── kernel/                        # 系统调用层
+│   ├── kernel.go                  #   Kernel：Open / Close / Read / Write / Stat / Ioctl / Watch
+│   ├── manager.go                 #   Manager：资源描述符管理
+│   ├── read_write.go              #   Read / Write 实现
+│   └── rctl.go                    #   RCtl：控制命令派发
 │
-├── docs/                      # 设计文档
-│   ├── actors_system_discussion_20251209.md
-│   ├── posix_resource_service_layer_20251210.md
-│   └── development_summary_20251216.md
+├── app/                           # 业务编排层
+│   ├── app.go                     #   App + Process 接口
+│   └── helpers.go                 #   WaitForProperty / WaitForEvent
 │
-└── infra/                     # 基础设施配置
-    ├── docker-compose.yml     # Docker Compose 配置（MinIO, Nessie, Spark Thrift Server）
-    └── beeline.sh             # beeline 客户端包装脚本
+├── server/                        # gRPC 远程接入层
+│   ├── server.go                  #   KernelServer：7 个 RPC 方法
+│   ├── registry.go                #   MessageRegistry：命令工厂 + 事件序列化
+│   ├── codec.go                   #   protobuf Struct ↔ map 转换
+│   └── gen/                       #   生成的 Go protobuf 代码
+│
+├── proto/uos/kernel/v1/
+│   └── kernel.proto               # gRPC 服务定义
+│
+├── sdk/python/                    # Python SDK
+│   ├── uos_kernel/
+│   │   ├── client.py              #   KernelClient（gRPC 客户端）
+│   │   ├── process.py             #   Process 基类
+│   │   └── helpers.py             #   wait_for_property / execute_capacity
+│   ├── examples/
+│   │   └── substation_maintenance.py
+│   └── gen/                       #   生成的 Python protobuf 代码
+│
+├── examples/
+│   ├── substation_maintenance/        # Go 示例：本地 App 框架
+│   └── substation_maintenance_grpc/   # Go 示例：gRPC 服务端
+│
+├── Makefile                       # proto 代码生成
+├── cmd/uos-kernel/                # 主程序入口（含 typesystem.yaml）
+├── docs/                          # 设计文档
+└── infra/                         # 基础设施配置
 ```
 
-## 核心组件
+## 核心概念
 
-### 1. Actor 系统 (`actor/`)
+### Actor — 设备资源
 
-**BaseActor**
-- 基础 Actor 实现，包含邮箱（mailbox）和消息处理循环
-- 支持异步消息传递和生命周期管理
+每个电力设备是一个 Actor，拥有：
 
-**PowerSystemResourceActor**
-- 代表 CIM 中的 PowerSystemResource
-- 动态管理 Capabilities（Control 和 Measurement）
-- 消息自动路由到对应的 Capacity
+- **属性**（Properties）：电压、电流、温度、开关状态等
+- **能力**（Capacity）：定义设备可执行的操作，通过 Message 路由
+- **事件**（Event）：设备异常、状态变更等，通过 EventEmitter 发射
 
-**Capacity 接口**
 ```go
-type Capacity interface {
+// 自定义 Actor（以断路器为例）
+type BreakerActor struct {
+    *actor.BaseResourceActor
+    // 设备状态字段...
+}
+
+// 注册能力
+breaker.AddCapacity(&BreakerSwitchingCapacity{...})
+
+// 发射事件
+breaker.GetEventEmitter().EmitEvent(&DeviceAbnormalEvent{...})
+```
+
+### Kernel — POSIX 风格 API
+
+```go
+fd, _ := k.Open("Breaker", "BREAKER-001", 0)   // 打开资源 → 文件描述符
+defer k.Close(fd)
+
+state, _ := k.Read(ctx, fd)                      // 读取属性
+stat, _  := k.Stat(ctx, fd)                      // 查询能力和事件定义
+
+k.Ioctl(ctx, fd, 0x1003, map[string]interface{}{  // 执行能力
+    "message": &OpenBreakerCommand{Reason: "检修"},
+})
+
+ch, cancel, _ := k.Watch(fd, nil)                // 监听事件（nil = 所有类型）
+defer cancel()
+for event := range ch { ... }
+```
+
+**标准 Ioctl 命令**：
+
+| 命令                    | 值     | 说明               |
+| ----------------------- | ------ | ------------------ |
+| CMD_GET_RESOURCE_INFO   | 0x1000 | 获取资源信息       |
+| CMD_LIST_CAPABILITIES   | 0x1001 | 列出能力           |
+| CMD_LIST_EVENTS         | 0x1002 | 列出事件           |
+| CMD_EXECUTE_CAPACITY    | 0x1003 | 执行能力（最常用） |
+
+**事件类型**：
+
+| 类型              | 说明                       |
+| ----------------- | -------------------------- |
+| state_change      | 生命周期变更               |
+| attribute_change  | 属性变更（name + value）   |
+| capability_change | 能力变更                   |
+| custom            | 业务自定义事件             |
+
+### App — 业务流程编排
+
+```go
+type Process interface {
     Name() string
-    CanHandle(msg Message) bool
-    Execute(ctx context.Context, msg Message) error
-    ResourceID() string
+    Run(ctx context.Context, k *kernel.Kernel) error
+}
+
+// 启动应用
+application := app.New(k)
+application.Run(ctx, &MaintenanceProcess{...}, &MonitorProcess{...})
+```
+
+辅助函数：
+
+```go
+// 等待属性达到预期值（先 Read 检查，再 Watch 等待）
+app.WaitForProperty(ctx, k, fd, "isOpen", true)
+
+// 等待匹配的自定义事件
+app.WaitForEvent(ctx, k, fd, func(e kernel.Event) bool { ... })
+```
+
+### gRPC — 跨语言接入
+
+gRPC 服务将 Kernel API 1:1 映射为远程 RPC，动态数据使用 `google.protobuf.Struct`，通过 `_type` 字段区分命令/事件的具体类型。
+
+```protobuf
+service KernelService {
+  rpc Open(OpenRequest)   returns (OpenResponse);
+  rpc Close(CloseRequest) returns (CloseResponse);
+  rpc Read(ReadRequest)   returns (ReadResponse);
+  rpc Write(WriteRequest) returns (WriteResponse);
+  rpc Stat(StatRequest)   returns (StatResponse);
+  rpc Ioctl(IoctlRequest) returns (IoctlResponse);
+  rpc Watch(WatchRequest) returns (stream WatchEvent);  // server streaming
 }
 ```
 
-### 2. 类型系统 (`meta/`)
+服务端需要注册 **MessageRegistry**，将命令类型名映射到 Go 工厂函数，将事件类型映射到序列化器。
 
-**TypeRegistry**
-- 管理所有类型描述符
-- 支持类型注册、查询、验证
+### Python SDK
 
-**TypeDescriptor**
-- 定义资源类型的元数据
-- 包含属性、关系、能力、生命周期等信息
-- 支持类型继承和查询
+```python
+from uos_kernel import KernelClient
+from uos_kernel.process import Process
+from uos_kernel.helpers import wait_for_property, execute_capacity
 
-**YAML Loader**
-- 从 YAML 文件加载类型系统定义
-- 支持类型继承和属性/能力继承
-- 自动解析类型描述符
+class MaintenanceProcess(Process):
+    def name(self) -> str:
+        return "变电站停电检修"
 
-### 3. 内核层 (`kernel/`)
+    def run(self, client: KernelClient) -> None:
+        fd = client.open("Breaker", "BREAKER-001", 0)
+        try:
+            # 监听事件
+            for event in client.watch(fd):
+                if event["data"].get("_type") == "DeviceAbnormalEvent":
+                    # 执行能力
+                    execute_capacity(client, fd, "OpenBreakerCommand", {
+                        "reason": "停电检修",
+                    })
+                    # 等待确认
+                    wait_for_property(client, fd, "isOpen", True)
+                    break
+        finally:
+            client.close(fd)
 
-**Manager**
-- 管理资源描述符的分配和回收
-- 维护资源引用计数和排他性控制
-- 提供底层资源管理接口
-
-**Kernel**
-- 面向用户的高级接口
-- 整合类型系统和资源管理
-- 提供 POSIX 风格的系统调用接口
-- 支持类型验证和操作路由
+with KernelClient("localhost:50051") as client:
+    MaintenanceProcess().run(client)
+```
 
 ## 快速开始
 
-### 1. 基本使用
+### Go 本地示例
 
-```go
-package main
-
-import (
-    "context"
-    "github.com/uos-projects/uos-kernel/actor"
-    "github.com/uos-projects/uos-kernel/kernel"
-)
-
-func main() {
-    ctx := context.Background()
-
-    // 1. 创建 Actor 系统
-    system := actors.NewSystem(ctx)
-    defer system.Shutdown()
-
-    // 2. 创建资源 Actor
-    actor := actors.NewPowerSystemResourceActor("BREAKER_001", "Breaker", nil)
-    system.Register(actor)
-
-    // 3. 创建内核
-    k := kernel.NewKernel(system)
-
-    // 4. 加载类型系统定义
-    k.LoadTypeSystem("cmd/uos-kernel/typesystem.yaml")
-
-    // 5. 打开资源（带类型验证）
-    fd, err := k.Open("Breaker", "BREAKER_001", 0)
-    defer k.Close(fd)
-
-    // 6. 查询资源信息
-    stat, err := k.Stat(ctx, fd)
-
-    // 7. 读取资源状态
-    state, err := k.Read(ctx, fd)
-
-    // 8. 执行控制操作（ioctl命令映射）
-    result, err := k.Ioctl(ctx, fd, 0x1004, map[string]interface{}{"value": 150.0})
-}
+```bash
+cd examples/substation_maintenance
+go run .
 ```
 
-### 2. 使用 Manager（底层接口）
+Actor 创建设备 → Kernel 提供 API → App 运行检修流程 → Watch 接收事件 → Ioctl 执行命令。
 
-```go
-// 创建资源管理器
-rm := kernel.NewManager(system)
+### gRPC + Python 跨语言示例
 
-// 打开资源
-fd, err := rm.Open("BE-G4")
-defer rm.Close(fd)
+```bash
+# 1. 生成 protobuf 代码
+make proto-all
 
-// 读取资源状态
-state, err := rm.Read(ctx, fd)
+# 2. 启动 Go gRPC 服务端
+cd examples/substation_maintenance_grpc && go run .
 
-// 使用 RCtl 发送控制命令
-setPointArg := map[string]interface{}{"value": 150.0}
-rm.RCtl(ctx, fd, kernel.CMD_SET_POINT, setPointArg)
+# 3. 运行 Python 客户端（另一个终端）
+cd sdk/python
+python -m venv .venv && source .venv/bin/activate
+pip install -e .
+python examples/substation_maintenance.py
 ```
 
-## 类型系统定义
+## 设计要点
 
-在类型系统 YAML 文件中定义资源类型（默认：`cmd/uos-kernel/typesystem.yaml`）：
-
-```yaml
-resource_types:
-  - name: Breaker
-    base_type: PowerSystemResource
-    attributes:
-      - name: ratedCurrent
-        type: float
-        required: false
-    capabilities:
-      - name: SwitchControl
-        operations: [open, close, queryState]
-      - name: Control
-        operations: [execute, query, cancel]
-```
-
-## 设计优势
-
-1. **分层清晰**：meta包是纯类型系统定义（元层），kernel包整合类型系统和资源管理（内核层），actors包实现资源执行（实现层）
-2. **类型安全**：通过类型系统验证，减少运行时错误
-3. **符合领域模型**：完美映射 CIM 标准，保持语义一致性
-4. **统一接口**：POSIX 风格的系统调用接口，符合用户习惯
-5. **可扩展性**：新增资源类型只需在 YAML 中定义
-6. **并发安全**：基于 Go channel 和 sync 包，保证并发安全
-7. **架构清晰**：meta/kernel/actors 三层架构，职责分明
+- **分层隔离**：业务流程只通过 Kernel API 操控设备，不直接接触 Actor
+- **命令-确认模式**：Ioctl 发送命令 → Watch/WaitForProperty 等待属性变更确认
+- **事件驱动**：Actor 发射事件 → Watch 推送给所有观察者 → 业务流程响应
+- **跨语言**：gRPC + protobuf Struct 解决 Go `interface{}` 的跨语言序列化问题
+- **Go 多模块**：actor、meta、kernel、app、server 各自独立模块，依赖关系清晰
 
 ## 技术栈
 
-- **Go**: 主要编程语言
-- **CIM**: Common Information Model，电力系统语义建模标准
-- **Actor 模型**: 并发编程模型，用于资源抽象
-- **YAML**: 类型系统定义格式
+- **Go** — 内核、Actor 系统、gRPC 服务端
+- **Python** — SDK 客户端
+- **gRPC / Protocol Buffers** — 跨语言通信
+- **Actor 模型** — 设备资源并发抽象
 
 ## 相关文档
 
-- [类型系统使用文档](meta/README.md)
-- [Actor系统设计讨论](docs/actors_system_discussion_20251209.md)
-- [POSIX风格资源服务层设计](docs/posix_resource_service_layer_20251210.md)
-- [开发总结 - 2025年12月16日](docs/development_summary_20251216.md)
-
-## 开发指南
-
-### 添加新的 Control Capacity
-
-1. 在 `actor/capacities/` 下创建新的 Capacity 实现
-2. 实现 `Capacity` 接口
-3. 在 `actor/capacity_factory.go` 中注册
-
-### 添加新的 Measurement Capacity
-
-1. 继承 `BaseMeasurementCapacity`
-2. 实现具体的测量值处理逻辑
-3. 在 `actor/capacity_factory.go` 中注册
-
-### 定义新的资源类型
-
-1. 在类型系统 YAML 文件中添加类型定义（默认：`cmd/uos-kernel/typesystem.yaml`）
-2. 定义属性、关系、能力
-3. 在类型系统 YAML 文件中定义 ioctl 命令映射
-4. 启动时可通过 `-typesystem` 参数指定自定义类型系统文件
-
-## 许可证
-
-[待添加]
+- [Actor 系统设计讨论](docs/actors_system_discussion_20251209.md)
+- [POSIX 风格资源服务层设计](docs/posix_resource_service_layer_20251210.md)
+- [开发总结](docs/development_summary_20251216.md)

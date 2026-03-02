@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+package uos.kernel.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/uos-projects/uos-kernel/server/gen/uos/kernel/v1;kernelpb";
+
+// EventType 事件类型枚举
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED       = 0;
+  EVENT_TYPE_STATE_CHANGE      = 1;
+  EVENT_TYPE_ATTRIBUTE_CHANGE  = 2;
+  EVENT_TYPE_CAPABILITY_CHANGE = 3;
+  EVENT_TYPE_CUSTOM            = 4;
+}
+
+// KernelService POSIX 风格资源管理 API
+service KernelService {
+  // Open 打开资源，返回文件描述符
+  rpc Open(OpenRequest) returns (OpenResponse);
+
+  // Close 关闭资源描述符
+  rpc Close(CloseRequest) returns (CloseResponse);
+
+  // Read 读取资源状态
+  rpc Read(ReadRequest) returns (ReadResponse);
+
+  // Write 写入资源属性
+  rpc Write(WriteRequest) returns (WriteResponse);
+
+  // Stat 获取资源元信息
+  rpc Stat(StatRequest) returns (StatResponse);
+
+  // Ioctl 资源控制操作
+  rpc Ioctl(IoctlRequest) returns (IoctlResponse);
+
+  // Watch 监听资源事件（server-side streaming）
+  rpc Watch(WatchRequest) returns (stream WatchEvent);
+}
+
+// ─── Open ───
+
+message OpenRequest {
+  string resource_type = 1;
+  string resource_id   = 2;
+  int32  flags         = 3;
+}
+
+message OpenResponse {
+  int32 fd = 1;
+}
+
+// ─── Close ───
+
+message CloseRequest {
+  int32 fd = 1;
+}
+
+message CloseResponse {}
+
+// ─── Read ───
+
+message ReadRequest {
+  int32 fd = 1;
+}
+
+message ReadResponse {
+  string                 resource_id   = 1;
+  string                 resource_type = 2;
+  repeated string        capabilities  = 3;
+  google.protobuf.Struct properties    = 4;
+}
+
+// ─── Write ───
+
+message WriteRequest {
+  int32                  fd      = 1;
+  google.protobuf.Struct updates = 2;
+}
+
+message WriteResponse {}
+
+// ─── Stat ───
+
+message StatRequest {
+  int32 fd = 1;
+}
+
+message CapabilityInfo {
+  string          name        = 1;
+  repeated string operations  = 2;
+  string          description = 3;
+}
+
+message EventInfo {
+  string name        = 1;
+  string event_type  = 2;
+  string description = 3;
+}
+
+message StatResponse {
+  string                  resource_id   = 1;
+  string                  resource_type = 2;
+  repeated CapabilityInfo capabilities  = 3;
+  repeated EventInfo      events        = 4;
+}
+
+// ─── Ioctl ───
+
+message IoctlRequest {
+  int32                  fd      = 1;
+  int32                  request = 2;
+  google.protobuf.Struct args    = 3;
+}
+
+message IoctlResponse {
+  google.protobuf.Struct result = 1;
+}
+
+// ─── Watch ───
+
+message WatchRequest {
+  int32              fd          = 1;
+  repeated EventType event_types = 2;
+}
+
+message WatchEvent {
+  EventType              type        = 1;
+  string                 resource_id = 2;
+  google.protobuf.Struct data        = 3;
+}

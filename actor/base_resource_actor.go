@@ -229,8 +229,32 @@ func (a *BaseResourceActor) GetBaseActor() *BaseActor {
 	return a.BaseActor
 }
 
-// transition 转换状态（内部方法，只能通过消息调用）
+// transition 转换状态（内部方法）
 func (a *BaseResourceActor) transition(to LifecycleState, trigger string) error {
+	fromState, err := a.doTransition(to, trigger)
+	if err != nil {
+		return err
+	}
+
+	// 通知 Watcher（在锁外执行，避免死锁）
+	if a.BaseActor.system != nil {
+		a.BaseActor.system.notifyWatchers(WatchEvent{
+			ResourceID: a.resourceID,
+			Type:       "lifecycle_change",
+			Name:       string(to),
+			Data: map[string]interface{}{
+				"from":    string(fromState),
+				"to":      string(to),
+				"trigger": trigger,
+			},
+		})
+	}
+
+	return nil
+}
+
+// doTransition 执行状态转换（持有锁）
+func (a *BaseResourceActor) doTransition(to LifecycleState, trigger string) (LifecycleState, error) {
 	a.stateMu.Lock()
 	defer a.stateMu.Unlock()
 
@@ -246,7 +270,7 @@ func (a *BaseResourceActor) transition(to LifecycleState, trigger string) error 
 
 	allowed, exists := allowedTransitions[current]
 	if !exists {
-		return fmt.Errorf("invalid current state: %s", current)
+		return "", fmt.Errorf("invalid current state: %s", current)
 	}
 
 	// 检查是否允许转换
@@ -259,13 +283,13 @@ func (a *BaseResourceActor) transition(to LifecycleState, trigger string) error 
 	}
 
 	if !canTransition {
-		return fmt.Errorf("invalid state transition from %s to %s", current, to)
+		return "", fmt.Errorf("invalid state transition from %s to %s", current, to)
 	}
 
 	fromState := current
 
 	// 记录状态转换
-	transition := StateTransition{
+	trans := StateTransition{
 		FromState: fromState,
 		ToState:   to,
 		Timestamp: 0, // TODO: 使用实际时间戳
@@ -273,7 +297,7 @@ func (a *BaseResourceActor) transition(to LifecycleState, trigger string) error 
 	}
 
 	// 添加到历史记录（保留最近100条）
-	a.stateHistory = append(a.stateHistory, transition)
+	a.stateHistory = append(a.stateHistory, trans)
 	if len(a.stateHistory) > 100 {
 		a.stateHistory = a.stateHistory[1:]
 	}
@@ -281,7 +305,7 @@ func (a *BaseResourceActor) transition(to LifecycleState, trigger string) error 
 	// 更新当前状态
 	a.currentState = to
 
-	return nil
+	return fromState, nil
 }
 
 // GetStateHistory 获取状态变化历史
@@ -302,8 +326,18 @@ func (a *BaseResourceActor) GetStateHistory() []StateTransition {
 // SetProperty 设置属性值
 func (a *BaseResourceActor) SetProperty(name string, value interface{}) {
 	a.propsMu.Lock()
-	defer a.propsMu.Unlock()
 	a.properties[name] = value
+	a.propsMu.Unlock()
+
+	// 通知 Watcher（在锁外执行，避免死锁）
+	if a.BaseActor.system != nil {
+		a.BaseActor.system.notifyWatchers(WatchEvent{
+			ResourceID: a.resourceID,
+			Type:       "property_change",
+			Name:       name,
+			Data:       value,
+		})
+	}
 }
 
 // GetProperty 获取属性值

@@ -6,6 +6,21 @@ import (
 	"sync"
 )
 
+// WatchEvent 表示资源变更事件，由 Watch 机制向外部传递
+type WatchEvent struct {
+	ResourceID string
+	Type       string      // "event", "property_change", "lifecycle_change"
+	Name       string      // 事件名称 / 属性名称 / 状态名称
+	Data       interface{} // 事件载荷
+}
+
+// watcher 表示一个外部观察者
+type watcher struct {
+	ch         chan WatchEvent
+	resourceID string // 过滤的资源 ID，空字符串表示监听所有资源
+	closeOnce  sync.Once
+}
+
 // System 是 Actor 系统的管理器
 type System struct {
 	actors           map[string]Actor
@@ -13,6 +28,10 @@ type System struct {
 	mu               sync.RWMutex
 	ctx              context.Context
 	cancel           context.CancelFunc
+
+	// Watch 机制
+	watchers   []*watcher
+	watchersMu sync.RWMutex
 }
 
 // NewSystem 创建一个新的 Actor 系统
@@ -23,6 +42,7 @@ func NewSystem(ctx context.Context) *System {
 		eventSubscribers: make([]string, 0),
 		ctx:              sysCtx,
 		cancel:           cancel,
+		watchers:         make([]*watcher, 0),
 	}
 }
 
@@ -62,21 +82,27 @@ func (s *System) UnsubscribeEvent(actorID string) {
 
 // PublishEvent 发布事件（直接发送给所有订阅的 Actor）
 func (s *System) PublishEvent(ctx context.Context, event Event) error {
+	// 通知外部 Watcher（无论是否有 Actor 订阅者）
+	resourceID := ""
+	if src, ok := event.(interface{ SourceActorID() string }); ok {
+		resourceID = src.SourceActorID()
+	}
+	s.notifyWatchers(WatchEvent{
+		ResourceID: resourceID,
+		Type:       "event",
+		Name:       fmt.Sprintf("%T", event),
+		Data:       event,
+	})
+
+	// 发送给所有订阅的 Actor
 	s.mu.RLock()
 	subscribers := make([]string, len(s.eventSubscribers))
 	copy(subscribers, s.eventSubscribers)
 	s.mu.RUnlock()
 
-	if len(subscribers) == 0 {
-		// 没有订阅者，直接返回
-		return nil
-	}
-
-	// 直接通过 system.Send() 发送给所有订阅的 Actor
 	for _, actorID := range subscribers {
 		go func(id string) {
 			if err := s.Send(id, event); err != nil {
-				// 静默处理错误，避免影响其他订阅者
 				_ = err
 			}
 		}(actorID)
@@ -253,6 +279,14 @@ func (s *System) Stop(id string) error {
 
 // Shutdown 关闭整个 Actor 系统
 func (s *System) Shutdown() error {
+	// 先关闭所有 Watcher
+	s.watchersMu.Lock()
+	for _, w := range s.watchers {
+		w.closeOnce.Do(func() { close(w.ch) })
+	}
+	s.watchers = nil
+	s.watchersMu.Unlock()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -279,4 +313,51 @@ func (s *System) Count() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return len(s.actors)
+}
+
+// ============================================================================
+// Watch 机制
+// ============================================================================
+
+// AddWatcher 注册一个外部观察者，监听指定资源的变更事件
+// 返回事件通道和取消函数
+func (s *System) AddWatcher(resourceID string) (<-chan WatchEvent, func()) {
+	w := &watcher{
+		ch:         make(chan WatchEvent, 64),
+		resourceID: resourceID,
+	}
+	s.watchersMu.Lock()
+	s.watchers = append(s.watchers, w)
+	s.watchersMu.Unlock()
+
+	cancel := func() { s.removeWatcher(w) }
+	return w.ch, cancel
+}
+
+// notifyWatchers 向所有匹配的 Watcher 发送事件（非阻塞）
+func (s *System) notifyWatchers(event WatchEvent) {
+	s.watchersMu.RLock()
+	defer s.watchersMu.RUnlock()
+	for _, w := range s.watchers {
+		if w.resourceID == "" || w.resourceID == event.ResourceID {
+			select {
+			case w.ch <- event:
+			default:
+				// 通道满时丢弃，避免阻塞
+			}
+		}
+	}
+}
+
+// removeWatcher 移除一个 Watcher 并关闭其通道
+func (s *System) removeWatcher(w *watcher) {
+	s.watchersMu.Lock()
+	defer s.watchersMu.Unlock()
+	for i, existing := range s.watchers {
+		if existing == w {
+			s.watchers = append(s.watchers[:i], s.watchers[i+1:]...)
+			w.closeOnce.Do(func() { close(w.ch) })
+			return
+		}
+	}
 }

@@ -203,9 +203,13 @@ func (k *Kernel) Stat(ctx context.Context, fd ResourceDescriptor) (*ResourceStat
 			eventDescs := resourceActor.ListEventDescriptors()
 			eventInfos = make([]EventInfo, len(eventDescs))
 			for i, eventDesc := range eventDescs {
+				eventType := ""
+				if eventDesc.PayloadType != nil {
+					eventType = eventDesc.PayloadType.String()
+				}
 				eventInfos[i] = EventInfo{
 					Name:        eventDesc.Name,
-					EventType:   string(eventDesc.EventType),
+					EventType:   eventType,
 					Description: eventDesc.Description,
 				}
 			}
@@ -223,16 +227,18 @@ func (k *Kernel) Stat(ctx context.Context, fd ResourceDescriptor) (*ResourceStat
 
 // Ioctl 控制操作（类似POSIX ioctl）
 func (k *Kernel) Ioctl(ctx context.Context, fd ResourceDescriptor, request int, argp interface{}) (interface{}, error) {
-	// 系统级命令处理（绕过 Capability 类型检查）
-	if ControlCommand(request) == CMD_SYNC {
-		result, err := k.resourceMgr.RCtl(ctx, fd, ControlCommand(request), argp)
+	controlCmd := convertIoctlToControlCommand(request)
+
+	// 标准内核命令：直接派发，不需要 ioctlMapping 验证
+	if isStandardCommand(controlCmd) {
+		result, err := k.resourceMgr.RCtl(ctx, fd, controlCmd, argp)
 		if err != nil {
-			return nil, fmt.Errorf("ioctl sync failed: %w", err)
+			return nil, fmt.Errorf("ioctl failed: %w", err)
 		}
 		return result, nil
 	}
 
-	// 查找ioctl命令映射
+	// 非标准命令：需要通过 ioctlMapping 验证
 	cmdDef, exists := k.ioctlMapping[request]
 	if !exists {
 		return nil, fmt.Errorf("unknown ioctl command: 0x%x", request)
@@ -244,33 +250,32 @@ func (k *Kernel) Ioctl(ctx context.Context, fd ResourceDescriptor, request int, 
 		return nil, err
 	}
 
-	// 获取资源类型
-	resourceType := state.ResourceType
-
-	// 从类型注册表获取类型描述符
-	var typeDesc *meta.TypeDescriptor
-	if k.typeRegistry.Exists(resourceType) {
-		typeDesc, _ = k.typeRegistry.Get(resourceType)
-	}
-
-	// 验证操作
-	if typeDesc != nil {
-		if err := typeDesc.ValidateOperation(cmdDef.Capability, cmdDef.Operation); err != nil {
-			return nil, fmt.Errorf("operation validation failed: %w", err)
+	// 从类型注册表获取类型描述符并验证操作
+	if k.typeRegistry.Exists(state.ResourceType) {
+		typeDesc, _ := k.typeRegistry.Get(state.ResourceType)
+		if typeDesc != nil {
+			if err := typeDesc.ValidateOperation(cmdDef.Capability, cmdDef.Operation); err != nil {
+				return nil, fmt.Errorf("operation validation failed: %w", err)
+			}
 		}
 	}
 
-	// 通过Manager的RCtl执行操作
-	// 需要将ioctl命令转换为ControlCommand
-	controlCmd := convertIoctlToControlCommand(request)
-
 	result, err := k.resourceMgr.RCtl(ctx, fd, controlCmd, argp)
 	if err != nil {
-		// 错误处理优化: 转换为更友好的错误信息
 		return nil, fmt.Errorf("ioctl operation failed: %w", err)
 	}
 
 	return result, nil
+}
+
+// isStandardCommand 判断是否为标准内核命令
+func isStandardCommand(cmd ControlCommand) bool {
+	switch cmd {
+	case CMD_GET_RESOURCE_INFO, CMD_LIST_CAPABILITIES, CMD_LIST_EVENTS, CMD_EXECUTE_CAPACITY, CMD_SYNC:
+		return true
+	default:
+		return false
+	}
 }
 
 // Find 查找资源（类似POSIX find）
@@ -286,10 +291,71 @@ func (k *Kernel) Find(resourceType string, filter Filter) ([]ResourceDescriptor,
 	return []ResourceDescriptor{}, nil
 }
 
-// Watch 监听资源变化（类似inotify）
-func (k *Kernel) Watch(fd ResourceDescriptor, events []EventType) (<-chan Event, error) {
-	// TODO: 实现资源变化监听
-	return nil, fmt.Errorf("watch not implemented yet")
+// Watch 监听资源变化（类似 inotify）
+// 返回事件通道和取消函数。events 为空时接收所有类型事件。
+func (k *Kernel) Watch(fd ResourceDescriptor, events []EventType) (<-chan Event, func(), error) {
+	handle, err := k.resourceMgr.GetHandle(fd)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid descriptor: %w", err)
+	}
+
+	resource := handle.resource
+	resource.mu.RLock()
+	resourceID := resource.resourceID
+	resource.mu.RUnlock()
+
+	// 在 Actor System 上注册 Watcher
+	watchCh, cancelWatch := k.system.AddWatcher(resourceID)
+
+	// 构建事件类型过滤集
+	filterSet := make(map[EventType]bool, len(events))
+	for _, e := range events {
+		filterSet[e] = true
+	}
+
+	// 输出通道
+	out := make(chan Event, 32)
+
+	go func() {
+		defer close(out)
+		for we := range watchCh {
+			ke := convertWatchEvent(we)
+			// 空过滤集表示接收所有事件
+			if len(filterSet) == 0 || filterSet[ke.Type] {
+				select {
+				case out <- ke:
+				default:
+					// 消费者慢时丢弃
+				}
+			}
+		}
+	}()
+
+	return out, cancelWatch, nil
+}
+
+// convertWatchEvent 将 actor.WatchEvent 转换为 kernel.Event
+func convertWatchEvent(we actor.WatchEvent) Event {
+	switch we.Type {
+	case "property_change":
+		return Event{
+			Type:       EventAttributeChange,
+			ResourceID: we.ResourceID,
+			Data:       map[string]interface{}{"name": we.Name, "value": we.Data},
+		}
+	case "lifecycle_change":
+		return Event{
+			Type:       EventStateChange,
+			ResourceID: we.ResourceID,
+			Data:       we.Data,
+		}
+	default: // "event" 及其他
+		return Event{
+			Type:       EventCustom,
+			ResourceID: we.ResourceID,
+			Data:       we.Data,
+		}
+	}
 }
 
 // GetTypeRegistry 获取类型注册表（用于查询已加载的类型）
@@ -344,6 +410,7 @@ const (
 	EventStateChange      EventType = "state_change"
 	EventAttributeChange  EventType = "attribute_change"
 	EventCapabilityChange EventType = "capability_change"
+	EventCustom           EventType = "custom" // Actor 发射的业务事件
 )
 
 // Event 资源事件

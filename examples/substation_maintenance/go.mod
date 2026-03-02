@@ -4,6 +4,19 @@ go 1.23
 
 toolchain go1.24.11
 
+require (
+	github.com/uos-projects/uos-kernel/actor v0.0.0
+	github.com/uos-projects/uos-kernel/app v0.0.0
+	github.com/uos-projects/uos-kernel/kernel v0.0.0
+	github.com/uos-projects/uos-kernel/meta v0.0.0
+)
+
+require gopkg.in/yaml.v3 v3.0.1 // indirect
+
 replace github.com/uos-projects/uos-kernel/actor => ../../actor
 
-require github.com/uos-projects/uos-kernel/actor v0.0.0
+replace github.com/uos-projects/uos-kernel/app => ../../app
+
+replace github.com/uos-projects/uos-kernel/kernel => ../../kernel
+
+replace github.com/uos-projects/uos-kernel/meta => ../../meta

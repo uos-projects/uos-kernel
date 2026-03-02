@@ -1,4 +1,4 @@
-module github.com/uos-projects/uos-kernel/cmd/uos-kernel
+module github.com/uos-projects/uos-kernel/app
 
 go 1.23
 
@@ -12,8 +12,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/uos-projects/uos-kernel/kernel => ../../kernel
+replace github.com/uos-projects/uos-kernel/kernel => ../kernel
 
-replace github.com/uos-projects/uos-kernel/actor => ../../actor
+replace github.com/uos-projects/uos-kernel/actor => ../actor
 
-replace github.com/uos-projects/uos-kernel/meta => ../../meta
+replace github.com/uos-projects/uos-kernel/meta => ../meta
